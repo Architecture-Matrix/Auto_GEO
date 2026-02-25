@@ -199,7 +199,8 @@ jobs:
             # 显示镜像信息
             echo ""
             echo "=== 使用镜像信息 ==="
-            docker images $IMAGE_TO_USE --format "仓库: $USE_REGISTRY\n镜像ID: {{.ID}}\n创建时间: {{.Created}}\n大小: {{.Size}}"
+            echo "仓库来源: $USE_REGISTRY"
+            docker images "$IMAGE_TO_USE" --format "镜像ID: {{.ID}}  创建时间: {{.CreatedAt}}  大小: {{.Size}}"
 
             echo ""
             echo "⏹️  第二步：停止旧容器..."
