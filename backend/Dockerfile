@@ -175,6 +175,13 @@ COPY --chown=autogeo:autogeo . /app/backend/
 ENV PYTHONPATH="/app"
 WORKDIR /app/backend
 
+# 生产环境变量
+ENV N8N_WEBHOOK_URL=https://n8n.opencaio.cn/webhook \
+    RAGFLOW_BASE_URL=https://ragflow.xinzhixietong.com \
+    ENVIRONMENT=production \
+    HOST=0.0.0.0 \
+    PYTHONUNBUFFERED=1
+
 # 切换到非 root 用户（安全最佳实践）
 USER autogeo
 
