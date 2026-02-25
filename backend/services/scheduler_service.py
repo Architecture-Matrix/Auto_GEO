@@ -6,12 +6,11 @@
 
 import asyncio
 import random
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 from datetime import datetime
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy.orm import Session
 
 # 尝试导入时区，防止环境缺失报错
 try:
@@ -20,7 +19,7 @@ except ImportError:
     timezone = None
 
 from backend.services.geo_article_service import GeoArticleService
-from backend.database.models import ScheduledTask, GeoArticle, Project, Keyword
+from backend.database.models import ScheduledTask, GeoArticle
 
 # 🌟 统一日志绑定
 log = logger.bind(module="调度中心")
@@ -50,7 +49,8 @@ class SchedulerService:
 
     def init_default_tasks(self):
         """初始化默认定时扫描任务"""
-        if not self.db_factory: return
+        if not self.db_factory:
+            return
         db = self.db_factory()
         try:
             if db.query(ScheduledTask).count() == 0:
@@ -103,7 +103,8 @@ class SchedulerService:
 
     def load_jobs_from_db(self):
         """从数据库加载并注册所有任务"""
-        if not self.db_factory: return
+        if not self.db_factory:
+            return
         db = self.db_factory()
         try:
             tasks = db.query(ScheduledTask).all()
@@ -128,7 +129,8 @@ class SchedulerService:
 
     def reload_task(self, task_id: int):
         """用户修改配置后，手动热更新"""
-        if not self.db_factory: return
+        if not self.db_factory:
+            return
         db = self.db_factory()
         try:
             task = db.query(ScheduledTask).get(task_id)
@@ -204,7 +206,7 @@ class SchedulerService:
                     # 使用 create_task 异步处理，防止多篇文章发布时互相阻塞
                     asyncio.create_task(service.execute_publish(article.id))
             else:
-                log.debug(f"🔍 [发布扫描] 无定时发布文章待处理")
+                log.debug("🔍 [发布扫描] 无定时发布文章待处理")
         except Exception as e:
             log.error(f"发布 Job 运行异常: {e}")
         finally:
@@ -214,7 +216,8 @@ class SchedulerService:
         """
         [Job] 自动监测收录
         """
-        if not self.db_factory: return
+        if not self.db_factory:
+            return
         db = self.db_factory()
         try:
             # 搜索：已发布 但 未被确认收录的文章

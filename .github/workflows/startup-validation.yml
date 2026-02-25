@@ -74,10 +74,9 @@ jobs:
           fi
 
       - name: Start backend server
-        working-directory: ./backend
         run: |
-          # 后台启动服务器
-          python main.py &
+          # 设置PYTHONPATH并后台启动服务器
+          PYTHONPATH=. python -m backend.main &
           BACKEND_PID=$!
           echo "Backend PID: $BACKEND_PID"
 
@@ -102,7 +101,7 @@ jobs:
       - name: Check API endpoints
         run: |
           # 再次启动服务器进行API检查
-          cd backend && python main.py &
+          PYTHONPATH=. python -m backend.main &
           BACKEND_PID=$!
           sleep 10
 

@@ -7,17 +7,15 @@
 import os
 import sys
 import json
-import hashlib
 import asyncio
-import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from loguru import logger
 
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright
 
-from backend.config import DATA_DIR, ENCRYPTION_KEY, AI_PLATFORMS, DEFAULT_USER_AGENT
+from backend.config import DATA_DIR, ENCRYPTION_KEY, DEFAULT_USER_AGENT, AI_PLATFORMS, BROWSER_ARGS
 from backend.services.crypto import CryptoService
 
 
@@ -267,9 +265,6 @@ class SecureSessionManager:
         Returns:
             心跳检测是否成功
         """
-        # 确保配置已加载
-        from backend.config import AI_PLATFORMS, BROWSER_ARGS
-        
         max_retries = 2
         retry_count = 0
 
