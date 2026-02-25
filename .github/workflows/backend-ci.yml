@@ -34,7 +34,7 @@ jobs:
         working-directory: ./backend
         run: |
           pip install -r requirements.txt
-          pip install ruff mypy types-redis
+          pip install "ruff>=0.8.0" mypy types-redis
 
       - name: Run Ruff
         working-directory: ./backend
