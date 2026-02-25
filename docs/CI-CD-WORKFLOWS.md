@@ -45,13 +45,16 @@ AutoGeo项目使用GitHub Actions进行自动化CI/CD，确保代码质量和自
 #### 2. Frontend Startup Check (前端启动验证)
 - **运行环境**: **Matrix** (Ubuntu + Windows)
 - **检查内容**:
-  - 安装Node依赖 (`npm ci`)
+  - 安装Node依赖 (`npm install`，使用Electron国内镜像加速)
   - **修复Electron path.txt** (Windows用PowerShell，Linux用bash)
   - 构建渲染进程 (`npm run build:renderer`)
   - 构建Electron主进程 (`npm run build:electron`)
   - 验证Electron可执行文件存在
   - 验证构建输出 (`out/electron/main/index.js`)
-  - 启动测试 (dev模式，15秒超时)
+  - 最终构建验证（输出验证摘要）
+- **⚠️ 重要说明**: GitHub Actions runner是无GUI环境，**无法启动Electron窗口**
+  - 因此CI只验证构建成功和二进制文件存在
+  - 不尝试运行`npm run dev`（会导致ENOENT错误）
 
 #### 3. Dependency Validation (依赖检查)
 - **检查文件**:
@@ -476,6 +479,36 @@ build-and-push ──→ deploy ──→ ✅ 部署成功
 - **backend-startup**: 查看后端日志，可能是依赖缺失或启动报错
 - **frontend-startup (Windows)**: 检查PowerShell语法，确保shell设置正确
 - **frontend-startup (Ubuntu)**: 检查npm构建错误
+
+### Q1.5: 为什么前端CI不启动Electron测试窗口？
+
+**A**: **GitHub Actions runner是无GUI环境！**
+
+**问题根源**:
+- GitHub Actions的Windows/Ubuntu runner是虚拟机环境
+- **没有显示器、没有图形界面**
+- Electron无法启动窗口，会导致`ENOENT`错误：
+  ```
+  Error: spawn electron.exe ENOENT
+  ```
+
+**正确做法**:
+- ✅ CI只验证：构建成功 + 二进制文件存在
+- ✅ 检查：`node_modules/electron/dist/electron.exe` 是否存在
+- ✅ 检查：`out/electron/main/index.js` 构建输出
+- ❌ **不尝试**：`npm run dev`（会失败）
+
+**本地测试**:
+- 如果你想验证Electron能否启动，在本地运行：
+  ```bash
+  cd frontend
+  npm run dev  # 本地有GUI，可以启动
+  ```
+
+**老王备注（2026-02-25）**：
+- 之前老王我犯了个SB错误，尝试在CI启动Electron
+- 结果每次都`ENOENT`，因为CI环境压根没有显示器！
+- 现在改为只验证构建，不启动窗口 ✅
 
 ### Q2: Backend CI的Ruff检查失败？
 
