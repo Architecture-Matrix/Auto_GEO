@@ -84,14 +84,15 @@ Backend CI通过3个job确保后端代码质量：
 |-----|---------|------|---------|
 | **Lint & Type Check** | 代码规范、格式、类型 | Ruff, MyPy | ~30s |
 | **Unit Tests** | 单元测试、覆盖率 | pytest | ~40s |
-| **Security Scan** | 安全漏洞 | Trivy | ~30s |
+| **Security Scan** | 密钥泄露、依赖漏洞 | Gitleaks, Trivy | ~45s |
 
 **关键检查项**：
 - ✅ 代码符合Ruff规范（PEP 8 + 自定义规则）
 - ✅ 代码格式正确（ruff format）
 - ✅ 类型注解正确（mypy）
 - ✅ 单元测试通过（pytest）
-- ✅ 无已知安全漏洞（Trivy）
+- ✅ 无密钥泄露（Gitleaks - 硬编码API密钥、密码、Token等）
+- ✅ 无已知安全漏洞（Trivy - Python依赖CVE、系统包漏洞）
 
 ### Jobs
 
@@ -125,14 +126,28 @@ Backend CI通过3个job确保后端代码质量：
 
 #### 3. Security Scan (安全扫描)
 - **运行环境**: Ubuntu
-- **扫描工具**: Trivy
-- **扫描范围**: `./backend` 目录
+- **扫描工具**: **Gitleaks + Trivy**
+- **扫描范围**:
+  - **Gitleaks**: 完整Git历史 + 当前代码
+  - **Trivy**: `./backend` 目录文件系统
 - **输出格式**: SARIF
 - **上传**: GitHub Security (CodeQL @v4)
 - **检查内容**:
-  - 已知漏洞 (CVE) 扫描
-  - 依赖包安全漏洞
-  - 代码配置问题
+
+  **Gitleaks（密钥泄露检测）**:
+  - ✅ 硬编码API密钥（OpenAI、GitHub、AWS等）
+  - ✅ 密码硬编码（password、pwd、secret等）
+  - ✅ 数据库连接字符串（postgres://、mysql://、mongodb://等）
+  - ✅ 私有IP地址（内网地址不应出现在代码中）
+  - ✅ Git历史中的密钥泄露（检测所有提交历史）
+  - ✅ Token泄露（GitHub Token、JWT等）
+
+  **Trivy（依赖漏洞检测）**:
+  - ✅ Python依赖包CVE漏洞（requirements.txt）
+  - ✅ 系统包安全漏洞
+  - ✅ 代码配置问题
+
+- **Gitleaks配置文件**: `.gitleaks.toml`
 - **权限配置**:
   ```yaml
   # Workflow级别权限
@@ -147,24 +162,60 @@ Backend CI通过3个job确保后端代码质量：
       security-events: write
   ```
 
-**老王备注（2026-02-25修复记录）**：
-- **第1次尝试**: 添加workflow级别的permissions配置
+**老王备注（2026-02-25完整修复记录）**：
+
+- **第1次修复**: 添加workflow级别的permissions配置
   - ❌ 问题：仍然报错"Resource not accessible by integration"
   - 原因：workflow级别权限没有传递到security job
 
-- **第2次尝试**: 在security job级别添加permissions配置 ✅
+- **第2次修复**: 在security job级别添加permissions配置 ✅
   - **修复**: 添加job级别的`permissions: contents: read, security-events: write`
+  - **commit**: 11a70fe
 
 - **第3次修复**: 升级CodeQL Action版本到v4 ✅
   - **v3 → v4**: 直接升级到最新稳定版
   - **v3 vs v4区别**:
     - v3 (2022): 功能完整但已进入维护期，2026年12月弃用
     - v4 (2025): 最新稳定版，性能更优，推荐所有项目使用
+  - **commit**: 748e3ef
+
+- **第4次修复**: 添加Gitleaks密钥泄露扫描 ✅
+  - **问题**: 之前的Trivy只能检测依赖漏洞，不能检测代码中的密钥泄露
+  - **修复**: 添加Gitleaks扫描，创建.gitleaks.toml配置文件
+  - **commit**: cd33048
+  - **检测能力对比**:
+
+    | 安全问题 | 之前（仅Trivy） | 现在（Gitleaks + Trivy） |
+    |---------|----------------|------------------------|
+    | 硬编码API密钥 | ❌ 不能检测 | ✅ 能检测 |
+    | GitHub Token泄露 | ❌ 不能检测 | ✅ 能检测 |
+    | 密码硬编码 | ❌ 不能检测 | ✅ 能检测 |
+    | 数据库连接字符串 | ❌ 不能检测 | ✅ 能检测 |
+    | Python依赖CVE | ✅ 能检测 | ✅ 能检测 |
+    | Git历史密钥 | ❌ 不能检测 | ✅ 能检测 |
+
+- **uv缓存修复**: 移除dependency-review.yml中不支持的`cache: 'uv'`
+  - **问题**: `actions/setup-python@v5`不支持`cache: 'uv'`
+  - **修复**: 移除cache配置，dependency review运行频率低不需要缓存
+  - **commit**: 8d311ab
 
 **如果还不行**: 检查GitHub仓库设置
 ```
 Settings → Actions → General → Workflow permissions
 → 选择 "Read and write permissions"
+```
+
+**本地测试Gitleaks**:
+```bash
+# 安装Gitleaks
+# Windows: scoop install gitleaks
+# Linux: brew install gitleaks
+
+# 检测当前代码
+gitleaks detect --source . --config .gitleaks.toml
+
+# 检测Git历史（更严格）
+gitleaks detect --source . --log-level debug
 ```
 
 ---
@@ -467,6 +518,88 @@ git commit -m "fix: 使用Ruff自动格式化代码"
 3. Docker是否已安装
 4. GHCR权限是否足够
 5. 查看部署日志中的容器日志
+
+### Q5: Gitleaks检测到密钥泄露怎么办？
+
+**A**: 按以下步骤处理：
+
+1. **查看GitHub Security alerts**
+   ```
+   https://github.com/Architecture-Matrix/Auto_GEO/security
+   → 查看 "Code scanning alerts"
+   ```
+
+2. **确认泄露类型**
+   - 如果是真实密钥：立即撤销并更换
+   - 如果是示例密钥：添加到.gitleaks.toml允许列表
+
+3. **修复历史提交中的密钥**
+   ```bash
+   # 使用git filter-repo或BFG Repo-Cleaner清除历史
+   git filter-repo --invert-paths --path FILE_WITH_SECRET
+
+   # 或者使用BFG
+   bfg --delete-files FILE_WITH_SECRET
+   git reflog expire --expire=now --all
+   git gc --prune=now --aggressive
+   ```
+
+4. **本地测试修复**
+   ```bash
+   gitleaks detect --source . --config .gitleaks.toml
+   ```
+
+5. **提交并推送**
+   ```bash
+   git add .
+   git commit -m "fix: 移除硬编码密钥"
+   git push
+   ```
+
+**老王备注**：
+- ❌ **永远不要**在代码中硬编码密钥、密码、Token
+- ✅ 使用环境变量或.env文件（记得添加到.gitignore）
+- ✅ 测试密钥应该放在.env.example中，格式：`API_KEY=your_api_key_here`
+
+### Q6: 如何避免Gitleaks误报？
+
+**A**: 两种方法：
+
+**方法1：修改代码（推荐）**
+```python
+# ❌ 会被检测到
+API_KEY = "sk-test-12345678"
+
+# ✅ 使用环境变量
+API_KEY = os.getenv("OPENAI_API_KEY")
+```
+
+**方法2：添加到允许列表**（仅用于示例数据）
+编辑`.gitleaks.toml`：
+```toml
+[allowlist]
+paths = [
+  '''tests/''',     # 测试文件
+  '''docs/''',      # 文档示例
+  '''.env\.example'''  # 环境变量模板
+]
+```
+
+### Q7: Gitleaks和Trivy有什么区别？
+
+**A**:
+
+| 对比项 | Gitleaks | Trivy |
+|-------|----------|-------|
+| **检测目标** | 代码中的密钥泄露 | 依赖包漏洞 |
+| **扫描内容** | API密钥、密码、Token、连接字符串 | Python包CVE、系统包漏洞 |
+| **扫描范围** | Git历史 + 当前代码 | 当前文件系统 |
+| **典型场景** | 检测开发者误提交的密钥 | 检测第三方库的安全漏洞 |
+| **是否必需** | ✅ 必需（防止密钥泄露） | ✅ 必需（防止依赖攻击） |
+
+**总结**：两者**互补**，缺一不可！
+- Gitleaks检测"自己写的代码"的问题
+- Trivy检测"用的第三方库"的问题
 
 ---
 
