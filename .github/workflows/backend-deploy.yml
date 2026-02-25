@@ -66,9 +66,8 @@ jobs:
           cache-from: |
             type=gha
             type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-to: type=gha,mode=max
+          # 老王备注：禁用registry缓存，确保Dockerfile修改生效
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
@@ -184,6 +183,8 @@ jobs:
               -e ENVIRONMENT=production \
               -e HOST=0.0.0.0 \
               -e PYTHONUNBUFFERED=1 \
+              -e N8N_BASE_URL=https://n8n.opencaio.cn \
+              -e RAGFLOW_BASE_URL=https://ragflow.xinzhixietong.com \
               $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest)
             echo "✅ 容器已启动，ID: $CONTAINER_ID"
 
