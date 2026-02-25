@@ -1,15 +1,29 @@
 name: Electron Build & Release
 
 on:
+  # 老王备注（2026-02-25）：推送tag时触发（正式发布）或frontend代码更新时触发（自动构建）
   push:
+    branches: [main, master]
     tags:
       - 'v*.*.*'
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/electron-build.yml'
+  # 老王备注（2026-02-25）：支持手动触发
   workflow_dispatch:
     inputs:
       version:
         description: 'Version (e.g., v1.0.0)'
-        required: true
-        default: 'v1.0.0'
+        required: false
+        default: 'auto'
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 env:
   NODE_VERSION: '20'
@@ -128,6 +142,10 @@ jobs:
       - name: Build electron main
         run: npm run build:electron
 
+      # 老王备注（2026-02-25）：调用构建前准备脚本
+      - name: Run before-build script
+        run: node scripts/before-build.js
+
       - name: Build for Windows
         if: runner.os == 'Windows'
         shell: powershell
@@ -185,7 +203,11 @@ jobs:
             exit 1
           fi
 
+      # 老王备注：只在tag推送或手动触发create_release=true时上传到Release
       - name: Upload artifacts to release
+        if: |
+          startsWith(github.ref, 'refs/tags/') ||
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: |
