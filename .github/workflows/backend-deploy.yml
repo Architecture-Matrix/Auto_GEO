@@ -17,6 +17,8 @@ env:
   PYTHON_VERSION: '3.12'
   REGISTRY: ghcr.io
   IMAGE_NAME: auto_geo_backend
+  # 老王备注：Docker镜像名必须小写！
+  REPO_OWNER_LOWER: architecture-matrix
 
 jobs:
   # ============================================
@@ -47,7 +49,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
@@ -61,8 +63,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
@@ -96,7 +102,7 @@ jobs:
             # 设置变量
             IMAGE_NAME="auto_geo_backend"
             REGISTRY="ghcr.io"
-            REPO_OWNER="${{ github.repository_owner }}"
+            REPO_OWNER="architecture-matrix"
             CONTAINER_NAME="autogeo-backend"
             PORT="${{ secrets.BACKEND_PORT || 8001 }}"
 
@@ -167,7 +173,7 @@ jobs:
         run: |
           echo "### 🎉 后端部署成功！" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **镜像**: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **镜像**: ${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "- **服务器**: ${{ secrets.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
           echo "- **端口**: ${{ secrets.BACKEND_PORT || 8001 }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
