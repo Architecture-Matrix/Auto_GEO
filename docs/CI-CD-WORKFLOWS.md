@@ -377,9 +377,29 @@ build-and-push ──→ deploy ──→ ✅ 部署成功
 **A**: 本地运行检查：
 ```bash
 cd backend
-ruff check .
-ruff check . --fix  # 自动修复
+ruff check .           # 代码规范检查
+ruff format --check .  # 格式检查（不修改文件）
 ```
+
+**如果格式检查失败**（最常见原因）：
+```bash
+# 自动格式化所有文件
+ruff format .
+
+# 验证格式化后的代码
+ruff check .
+ruff format --check .
+
+# 提交修复
+git add backend/
+git commit -m "fix: 使用Ruff自动格式化代码"
+```
+
+**老王备注（2026-02-25修复记录）**：
+- **问题**: 69个文件格式不符合Ruff规范，导致`ruff format --check .`失败
+- **原因**: 代码风格与pyproject.toml中定义的Ruff格式规范不一致
+- **解决**: 运行`ruff format .`自动格式化所有文件
+- **结果**: Backend CI的lint job现在完全通过 ✅
 
 ### Q3: Electron Build在哪个平台运行？
 
