@@ -232,6 +232,12 @@ jobs:
 
             docker rm -f $CONTAINER_NAME 2>/dev/null || true
 
+            # 老王备注：先测试镜像是否能正常启动（诊断）
+            echo "=== 测试镜像启动 ==="
+            docker run --rm $IMAGE_TO_USE python -c "import sys; print('Python:', sys.version); from backend.database import init_db; print('✅ 模块导入成功')" || {
+                echo "❌ 镜像测试失败，尝试直接运行"
+            }
+
             CONTAINER_ID=$(docker run -d \
               --name $CONTAINER_NAME \
               --restart unless-stopped \
@@ -252,6 +258,12 @@ jobs:
               $IMAGE_TO_USE)
 
             echo "✅ 容器已启动，ID: $CONTAINER_ID"
+
+            # 老王备注：诊断容器内部环境
+            echo ""
+            echo "=== 容器内部环境诊断 ==="
+            docker exec $CONTAINER_NAME python -c "import sys; print('PYTHONPATH:'); print(sys.path)" 2>/dev/null || echo "无法执行诊断"
+            docker exec $CONTAINER_NAME ls -la /app/backend/ | head -10 2>/dev/null || echo "无法列出目录"
 
             echo ""
             echo "🔍 第六步：检查容器状态..."
