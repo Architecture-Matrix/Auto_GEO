@@ -94,6 +94,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script_stop: true
+          timeout: 600s  # 老王备注：镜像拉取需要更长时间
+          command_timeout: 600s  # 老王备注：每个命令最多10分钟
           script: |
             set -e  # 遇到错误立即退出
 
@@ -110,9 +112,25 @@ jobs:
             echo "🔐 登录到 GHCR..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u "${{ github.actor }}" --password-stdin
 
-            # 拉取最新镜像
+            # 拉取最新镜像（老王备注：添加重试机制）
             echo "📦 拉取最新镜像..."
-            docker pull $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest
+            MAX_RETRIES=3
+            RETRY_COUNT=0
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if docker pull $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest; then
+                echo "✅ 镜像拉取成功"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "⚠️ 镜像拉取失败，5秒后重试 ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep 5
+                else
+                  echo "❌ 镜像拉取失败，已重试$MAX_RETRIES次"
+                  exit 1
+                fi
+              fi
+            done
 
             # 停止并删除旧容器
             echo "⏹️  停止旧容器..."
