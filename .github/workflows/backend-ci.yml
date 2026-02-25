@@ -97,11 +97,13 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    # 老王备注：job级别权限，确保能上传SARIF到GitHub Security
+    # 老王备注：job级别权限
     permissions:
       contents: read
-      security-events: write
       actions: read  # 老王备注：修复telemetry权限问题
+      # 老王备注（2026-02-25）：不再需要security-events: write
+      # 因为我们将结果上传为Artifact而不是GitHub Code Scanning
+      # security-events: write  # 如果启用Advanced Security，取消注释此行
 
     steps:
       - name: Checkout
@@ -127,10 +129,19 @@ jobs:
           scan-ref: './backend'
           format: 'sarif'
           output: 'trivy-results.sarif'
-        # 老王备注：即使Gitleaks失败，Trivy也要运行（检测依赖漏洞）
 
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v4
+      # 老王备注：上传Trivy扫描结果为Artifact（不需要Advanced Security）
+      - name: Upload Trivy results as Artifact
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: 'trivy-results.sarif'
-        if: always()  # 老王备注：即使Trivy失败，也尝试上传（避免文件不存在错误）
+          name: trivy-scan-results
+          path: trivy-results.sarif
+          retention-days: 30
+
+      # 老王备注（2026-02-25）：GitHub Advanced Security是付费功能
+      # 如果启用了Advanced Security，可以取消下面的注释来上传到Code Scanning
+      # - name: Upload Trivy results to GitHub Security
+      #   uses: github/codeql-action/upload-sarif@v4
+      #   with:
+      #     sarif_file: 'trivy-results.sarif'
+      #   if: always()

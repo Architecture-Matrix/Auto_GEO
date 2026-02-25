@@ -152,7 +152,37 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm ci
+        # 老王备注（2026-02-25）：使用npm install而非npm ci，确保Electron二进制文件下载
+        run: |
+          npm config set Electron Mirror https://npmmirror.com/mirrors/electron/
+          npm config set Electron Custom Dir "{{ root }}"
+          npm install
+
+      # 老王备注：验证Electron二进制文件是否存在
+      - name: Verify Electron binary exists
+        working-directory: ./frontend
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ELECTRON_BIN="node_modules/electron/dist/electron.exe"
+          else
+            ELECTRON_BIN="node_modules/electron/dist/electron"
+          fi
+
+          if [ ! -f "$ELECTRON_BIN" ]; then
+            echo "❌ Electron binary not found at: $ELECTRON_BIN"
+            echo "Trying to download manually..."
+            npx electron-download --version=$(node -p "require('./package.json').devDependencies.electron.replace('^', '')")
+          fi
+
+          # 再次检查
+          if [ ! -f "$ELECTRON_BIN" ]; then
+            echo "❌ Electron binary still missing after download attempt"
+            ls -la node_modules/electron/dist/ || echo "dist directory doesn't exist"
+            exit 1
+          fi
+
+          echo "✅ Electron binary exists at: $ELECTRON_BIN"
 
       - name: Fix Electron path.txt (Windows)
         if: runner.os == 'Windows'
@@ -212,10 +242,10 @@ jobs:
       - name: Startup test (dev mode)
         working-directory: ./frontend
         run: |
-          # 启动dev服务器，10秒后自动停止
-          timeout 15 npm run dev || true
+          # 启动dev服务器，验证Electron能否正常启动
+          # 老王备注（2026-02-25）：移除continue-on-error，让真实失败暴露出来
+          timeout 15 npm run dev
         shell: bash
-        continue-on-error: true
 
   # ==================== 依赖检查 ====================
   dependency-check:
