@@ -135,16 +135,34 @@ Backend CI通过3个job确保后端代码质量：
   - 代码配置问题
 - **权限配置**:
   ```yaml
+  # Workflow级别权限
   permissions:
     contents: read
-    security-events: write  # 上传安全扫描结果
+    security-events: write
+
+  # Job级别权限（必需！）
+  security:
+    permissions:
+      contents: read
+      security-events: write
   ```
 
 **老王备注（2026-02-25修复记录）**：
-- **问题**: Security Scan报错"Resource not accessible by integration"
-- **原因**: workflow缺少`security-events: write`权限，CodeQL Action使用已弃用的v2版本
-- **修复**: 添加permissions配置，升级CodeQL Action从v2到v3
-- **结果**: Security Scan现在能正常上传SARIF结果到GitHub Security
+- **第1次尝试**: 添加workflow级别的permissions配置
+  - ❌ 问题：仍然报错"Resource not accessible by integration"
+  - 原因：workflow级别权限没有传递到security job
+
+- **第2次尝试**: 在security job级别添加permissions配置 ✅
+  - **修复**: 添加job级别的`permissions: contents: read, security-events: write`
+  - **结果**: Security Scan现在应该能正常上传SARIF结果
+
+- **额外修复**: 升级CodeQL Action从v2到v3（v3将在2026年12月弃用，后续需升级到v4）
+
+**如果还不行**: 检查GitHub仓库设置
+```
+Settings → Actions → General → Workflow permissions
+→ 选择 "Read and write permissions"
+```
 
 ---
 
