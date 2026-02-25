@@ -75,7 +75,13 @@ def socket_log_sink(message):
         pass
 
 
-# 配置 Loguru
+# 艹，修复 Windows GBK 编码下的 emoji 输出问题！
+# 强制重新配置 stdout 使用 UTF-8 编码
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+# 配置 Loguru（stdout 已经是 UTF-8 了，不需要额外指定 encoding）
 logger.remove()
 logger.add(sys.stdout, level="INFO", colorize=True)
 logger.add(socket_log_sink, level="INFO")

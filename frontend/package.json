@@ -17,7 +17,11 @@
     "vite:dev": "vite",
     "electron:dev": "npx electron .",
     "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac",
+    "dist": "electron-builder -wml"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
@@ -40,7 +44,6 @@
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.11.0",
     "@vitejs/plugin-vue": "^5.0.0",
-    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "sass": "^1.70.0",
     "typescript": "^5.3.0",

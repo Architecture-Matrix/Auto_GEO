@@ -6,6 +6,11 @@ on:
     paths:
       - 'backend/**'
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: '部署到服务器'
+        required: true
+        default: 'true'
 
 env:
   PYTHON_VERSION: '3.12'
@@ -13,6 +18,9 @@ env:
   IMAGE_NAME: auto_geo_backend
 
 jobs:
+  # ============================================
+  # 第一步：构建并推送 Docker 镜像
+  # ============================================
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -58,13 +66,14 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
 
+  # ============================================
+  # 第二步：部署到服务器
+  # ============================================
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
     needs: build-and-push
-    environment:
-      name: production
-      url: https://your-server.com
+    if: github.ref == 'refs/heads/master'
 
     steps:
       - name: Checkout
@@ -76,13 +85,79 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            cd /opt/auto_geo
-            docker-compose pull backend
-            docker-compose up -d backend
+            echo "🚀 开始部署 AutoGeo 后端..."
+
+            # 设置变量
+            IMAGE_NAME="${{ env.IMAGE_NAME }}"
+            REGISTRY="${{ env.REGISTRY }}"
+            REPO_OWNER="${{ github.repository_owner }}"
+            CONTAINER_NAME="autogeo-backend"
+            PORT="${{ secrets.BACKEND_PORT || 8001 }}"
+
+            # 拉取最新镜像
+            echo "📦 拉取最新镜像..."
+            docker pull $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest
+
+            # 停止旧容器
+            echo "⏹️  停止旧容器..."
+            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
+              docker stop $CONTAINER_NAME
+              docker rm $CONTAINER_NAME
+              echo "✅ 旧容器已停止"
+            fi
+
+            # 创建数据目录（老王我补充：数据库和cookies都要持久化！）
+            echo "📁 创建数据目录..."
+            mkdir -p ~/autogeo/data ~/autogeo/logs ~/autogeo/database ~/autogeo/cookies
+
+            # 启动新容器
+            echo "🚀 启动新容器..."
+            docker run -d \
+              --name $CONTAINER_NAME \
+              --restart unless-stopped \
+              -p $PORT:8001 \
+              -v ~/autogeo/data:/app/data \
+              -v ~/autogeo/logs:/app/logs \
+              -v ~/autogeo/database:/app/backend/database \
+              -v ~/autogeo/cookies:/app/.cookies \
+              -e ENVIRONMENT=production \
+              -e HOST=0.0.0.0 \
+              -e PYTHONUNBUFFERED=1 \
+              $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest
+
+            # 等待服务启动（Playwright需要更长时间）
+            echo "⏳ 等待服务启动（30秒）..."
+            sleep 30
+
+            # 健康检查
+            echo "🔍 健康检查..."
+            if curl -f http://localhost:$PORT/api/health > /dev/null 2>&1; then
+              echo "✅ 后端服务启动成功！"
+              echo "📍 API 地址: http://$(hostname -I | awk '{print $1'}):$PORT"
+              echo "📊 API 文档: http://$(hostname -I | awk '{print $1'}):$PORT/docs"
+            else
+              echo "❌ 后端服务启动失败！"
+              docker logs $CONTAINER_NAME
+              exit 1
+            fi
+
+            # 清理旧镜像
+            echo "🧹 清理未使用的镜像..."
             docker image prune -f
 
-      - name: Health check
+            echo "🎉 部署完成！"
+
+      # 可选：发送部署通知
+      - name: Deployment Summary
         run: |
-          sleep 10
-          curl -f ${{ secrets.API_URL }}/health || exit 1
+          echo "### 🎉 后端部署成功！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **镜像**: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **服务器**: ${{ secrets.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **端口**: ${{ secrets.BACKEND_PORT || 8001 }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 下一步" >> $GITHUB_STEP_SUMMARY
+          echo "1. 前端更新 API 地址为服务器IP" >> $GITHUB_STEP_SUMMARY
+          echo "2. 打包 Electron 应用" >> $GITHUB_STEP_SUMMARY

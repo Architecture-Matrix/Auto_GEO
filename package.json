@@ -1,0 +1,31 @@
+{
+  "name": "autogeo-launcher",
+  "version": "3.1.0",
+  "description": "AutoGeo跨平台启动器 - 老王出品",
+  "main": "quickstart.js",
+  "bin": "quickstart.js",
+  "scripts": {
+    "start": "node quickstart.js",
+    "build": "pkg .",
+    "build:win": "pkg quickstart.js -t node18-win-x64 -o quickstart.exe",
+    "build:linux": "pkg quickstart.js -t node18-linux-x64 -o quickstart",
+    "build:mac": "pkg quickstart.js -t node18-macos-x64 -o quickstart",
+    "build:all": "npm run build:win && npm run build:linux && npm run build:mac"
+  },
+  "pkg": {
+    "assets": [],
+    "targets": [
+      "node18-win-x64",
+      "node18-linux-x64",
+      "node18-macos-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "keywords": [
+    "autogeo",
+    "launcher",
+    "cross-platform"
+  ],
+  "author": "老王",
+  "license": "MIT"
+}

@@ -1,87 +1,165 @@
-# AutoGeo Backend Dockerfile
-# 多阶段构建，最终镜像只包含运行时依赖
+# AutoGeo Backend Dockerfile (优化版 v3.1)
+# 老王出品，必属精品！
+# 多阶段构建 + 安全优化 + 生产就绪
+
+# ============================================
+# Stage 1: Builder - 构建依赖
+# ============================================
 FROM python:3.12-slim AS builder
 
-# 设置构建参数
+# 构建参数
 ARG BUILD_DATE
 ARG VCS_REF
-ARG VERSION=2.3.0
+ARG VERSION=3.1.0
+
+# 设置标签
+LABEL maintainer="AutoGeo Team" \
+      org.opencontainers.image.title="AutoGeo Backend" \
+      org.opencontainers.image.description="FastAPI backend with Playwright" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}"
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# 安装系统依赖
+# 安装构建依赖和 Playwright 系统库
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装 uv - 更快的 Python 包管理器
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-# 设置工作目录
-WORKDIR /build
-
-# 复制依赖文件
-COPY requirements.txt .
-
-# 安装 Python 依赖到临时目录
-RUN uv pip install --system -r requirements.txt --target /tmp/python
-
-# =============================================
-# 最终阶段 - 只包含运行时
-# =============================================
-FROM python:3.12-slim
-
-# 设置标签
-LABEL maintainer="AutoGeo Team" \
-      org.opencontainers.image.title="AutoGeo Backend" \
-      org.opencontainers.image.description="FastAPI backend for AutoGeo platform" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.source="https://github.com/Architecture-Matrix/auto_geo"
-
-# 安装运行时依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
+    # 基础工具
     curl \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    gnupg \
+    build-essential \
+    # Playwright 运行时依赖
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxshmfence1 \
+    # 字体支持（中文）
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 创建虚拟环境
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 复制并安装依赖
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
+# 安装 Playwright 浏览器
+RUN playwright install chromium && \
+    playwright install-deps chromium
+
+# ============================================
+# Stage 2: Runtime - 生产运行时
+# ============================================
+FROM python:3.12-slim
+
+# 获取构建参数
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=3.1.0
+
+# 设置标签（继承自 builder）
+LABEL maintainer="AutoGeo Team" \
+      org.opencontainers.image.title="AutoGeo Backend" \
+      org.opencontainers.image.description="FastAPI backend with Playwright" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}"
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH="/app:${PATH}" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     PYTHONPATH="/app"
 
-# 创建非 root 用户
-RUN useradd -m -u 1000 autogeo && \
-    mkdir -p /app/data /app/logs /app/.cache && \
+# 安装运行时依赖（不需要 build-essential）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    # Playwright 运行时依赖
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libxshmfence1 \
+    # 字体支持
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 创建应用用户（安全最佳实践）
+RUN useradd -m -u 1000 -s /bin/bash autogeo && \
+    mkdir -p /app/data /app/logs /app/.cookies /app/backend/database /app/backend/static && \
     chown -R autogeo:autogeo /app
 
-# 从构建阶段复制 Python 依赖
-COPY --from=builder /tmp/python /usr/local
-
-# 复制应用代码
+# 设置工作目录
 WORKDIR /app
+
+# 从 builder 复制虚拟环境和 Playwright
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /ms-playwright /ms-playwright
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 复制应用代码（利用 Docker 缓存层）
 COPY --chown=autogeo:autogeo . .
 
-# 切换到非 root 用户
+# 切换到非 root 用户（安全最佳实践）
 USER autogeo
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
 
 # 暴露端口
 EXPOSE 8001
 
+# 健康检查（老王备注：路径统一为 /api/health）
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8001/api/health || exit 1
+
 # 启动命令
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# 老王备注：
+# - backend.main:app 是正确的模块路径
+# - --workers 1 用于生产环境（Playwright 不支持多进程）
+# - --log-level info 生产日志级别
+CMD ["uvicorn", "backend.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8001", \
+     "--workers", "1", \
+     "--log-level", "info"]

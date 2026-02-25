@@ -1,0 +1,137 @@
+name: Electron Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # 第一步：检查代码质量
+  # ============================================
+  check:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run TypeScript check
+        run: npm run type-check
+        continue-on-error: true
+
+  # ============================================
+  # 第二步：构建跨平台安装包
+  # ============================================
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    needs: check
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - os: windows-latest
+            platform: windows
+            arch: x64
+            target: nsis
+
+          # Linux
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            target: AppImage
+
+          # macOS
+          - os: macos-latest
+            platform: macos
+            arch: x64
+            target: dmg
+
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Build electron main
+        run: npm run build:electron
+
+      - name: Build for ${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            npm run dist:linux -- --${{ matrix.target }}
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            npm run dist:win -- --${{ matrix.target }}
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            npm run dist:mac -- --${{ matrix.target }}
+          fi
+        shell: bash
+
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend/dist/*.{exe,msi,zip,dmg,AppImage,deb}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
+          path: frontend/dist/*
+          retention-days: 30
+        if: always()

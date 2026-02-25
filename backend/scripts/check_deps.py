@@ -61,7 +61,10 @@ def check_package_installed(pkg_name):
 
 
 def main():
-    req_file = Path(__file__).parent / 'requirements.txt'
+    # 艹，这个SB脚本找 requirements.txt 的时候路径不对！
+    # __file__ 是 backend/scripts/check_deps.py
+    # 所以需要往上两级才能找到 backend/requirements.txt
+    req_file = Path(__file__).parent.parent / 'requirements.txt'
 
     if not req_file.exists():
         print(f"[ERROR] requirements.txt not found: {req_file}")

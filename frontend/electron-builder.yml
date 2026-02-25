@@ -1,61 +1,34 @@
-# Electron Builder 配置
-# AutoGeo 跨平台打包配置
-
-# 应用信息
 appId: com.autogeo.app
 productName: AutoGeo
 copyright: Copyright © 2025 AutoGeo Team
-
-# 目录配置
 directories:
   buildResources: build
   output: dist
-
-# 文件配置
 files:
-  - "**/*"
-  - "!**/*.map"
-  - "!**/*.ts"
-  - "!**/*.scss"
-  - "!**/*.md"
-  - "!**/{.git,.gitignore,.env,.env.*}"
-  - "!**/{node_modules}";
-
-# 额外文件/资源
+  - out/**/*
+  - package.json
+  # electron-builder 会自动打包 dependencies（从 package.json 读取）
+  # 如果需要排除某些依赖，可以使用 ! 前缀
 extraResources:
-  - from: "../backend"
-    to: "backend"
+  - from: ../backend
+    to: backend
     filter:
-      - "**/*"
-      - "!**/__pycache__"
-      - "!**/*.pyc"
-      - "!**/.pytest_cache"
-      - "!**/tests"
-      - "!**/.git"
-
-# ============================================
-# 通用配置
-# ============================================
-asar: true
-asarUnpack:
-  - resources/**
-  - backend/**
-
-# ============================================
-# Windows 配置
-# ============================================
+      - '**/*'
+      - '!**/__pycache__'
+      - '!**/*.pyc'
+      - '!**/.pytest_cache'
+      - '!**/tests'
+      - '!**/.git'
+# 关闭 asar 打包，避免模块路径问题（老王我实测这玩意儿是个坑）
+asar: false
 win:
   target:
     - target: nsis
       arch:
         - x64
-    - target: portable
-      arch:
-        - x64
-  icon: build/icon.ico
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
-
-# NSIS 安装程序配置
+  sign: null
+  signingHashAlgorithms: []
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -64,43 +37,28 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: AutoGeo
-
-# ============================================
-# macOS 配置
-# ============================================
 mac:
   target:
     - target: dmg
       arch:
         - x64
-        - arm64
-    - target: zip
-      arch:
-        - universal
   category: public.app-category.productivity
-  icon: build/icon.icns
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
+  identity: null
+  hardenedRuntime: false
   gatekeeperAssess: false
-  hardenedRuntime: true
-  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
-
-# DMG 配置
 dmg:
   contents:
     - x: 130
-      y: 220
+      'y': 220
+      type: file
+      path: AutoGeo.app
     - x: 410
-      y: 220
+      'y': 220
       type: link
       path: /Applications
   window:
     width: 540
     height: 380
-
-# ============================================
-# Linux 配置
-# ============================================
 linux:
   target:
     - target: AppImage
@@ -109,74 +67,7 @@ linux:
     - target: deb
       arch:
         - x64
-    - target: rpm
-      arch:
-        - x64
   category: Utility
-  icon: build/icons
-  maintainer: AutoGeo Team
-  vendor: AutoGeo
   synopsis: AI-powered multi-platform article publishing assistant
-  description: |
-    AutoGeo is an intelligent platform for GEO automation,
-    supporting article generation, multi-platform publishing,
-    and index monitoring.
-
-# AppImage 配置
-appimage:
-  license: MIT
-  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
-
-# deb 配置
 deb:
-  depends:
-    - gconf2
-    - gconf-service
-    - libnotify4
-    - libappindicator1
-    - libxtst6
-    - libnss3
   priority: optional
-
-# rpm 配置
-rpm:
-  fpm:
-    - '--rpm-rpmbuild-define=_build_id_links none'
-  license: MIT
-  depends:
-    - GConf2
-    - libnotify
-    - nss
-    - libXtst
-
-# ============================================
-# 发布配置 (GitHub Releases)
-# ============================================
-publish:
-  provider: github
-  owner: Architecture-Matrix
-  repo: auto_geo
-
-# ============================================
-# 自动更新配置
-# ============================================
-# electron-updater 配置
-# Windows: 将生成 .yml 更新文件
-# macOS: 将生成 .dmg.blockmap文件
-# Linux: AppImage 支持增量更新
-
-# ============================================
-# 代码签名配置 (需要配置 Secrets)
-# ============================================
-# Windows Code Signing (配置 WIN_CSC_LINK 和 WIN_CSC_KEY_PASSWORD)
-# macOS Code Signing (配置 CSC_LINK 和 CSC_KEY_PASSWORD)
-
-# ============================================
-# 构建前脚本
-# ============================================
-beforeBuild: node scripts/before-build.js
-
-# ============================================
-# 构建后脚本
-# ============================================
-afterPack: node scripts/after-pack.js

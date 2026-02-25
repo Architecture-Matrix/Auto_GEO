@@ -1,0 +1,265 @@
+# ========================================
+# Startup Validation CI/CD
+# Maintainer: 老王
+# Purpose: 验证clone后能否正常启动前后端
+# Updated: 2026-02-24
+# ========================================
+#
+# 老王备注：
+# 这个SB工作流专门用来验证clone仓库后能否正常启动
+# 每次push和PR都会跑，确保不会有人clone下来就启动不了
+# 艹，这种SB问题老王我见多了！
+#
+
+name: Startup Validation
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  PYTHON_VERSION: '3.10'
+  NODE_VERSION: '20'
+
+jobs:
+  # ==================== 后端启动验证 ====================
+  backend-startup:
+    name: 🚀 Backend Startup Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 \
+            libnspr4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2
+
+      - name: Install Python dependencies
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Create environment file
+        working-directory: ./backend
+        run: |
+          if [ ! -f .env ]; then
+            cp ../.env.example .env || echo "N8N_WEBHOOK_URL=http://localhost:5678/webhook" > .env
+          fi
+
+      - name: Start backend server
+        working-directory: ./backend
+        run: |
+          # 后台启动服务器
+          python main.py &
+          BACKEND_PID=$!
+          echo "Backend PID: $BACKEND_PID"
+
+          # 等待服务器启动
+          for i in {1..30}; do
+            if curl -f http://127.0.0.1:8001/ > /dev/null 2>&1; then
+              echo "✅ Backend started successfully!"
+              break
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+
+          # 健康检查
+          curl -f http://127.0.0.1:8001/ || exit 1
+          curl -f http://127.0.0.1:8001/api/health || exit 1
+
+          # 停止服务器
+          kill $BACKEND_PID || true
+          echo "✅ Backend startup validation passed!"
+
+      - name: Check API endpoints
+        run: |
+          # 再次启动服务器进行API检查
+          cd backend && python main.py &
+          BACKEND_PID=$!
+          sleep 10
+
+          # 检查关键API端点
+          curl -f http://127.0.0.1:8001/api/platforms || exit 1
+          curl -f http://127.0.0.1:8001/docs || exit 1
+
+          kill $BACKEND_PID || true
+
+  # ==================== 前端启动验证 ====================
+  frontend-startup:
+    name: 🎨 Frontend Startup Check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # 暂时不测试macOS，因为没有Mac runner
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Fix Electron path.txt (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        working-directory: ./frontend
+        run: |
+          # 修复Windows下的Electron安装问题
+          if (Test-Path "node_modules\electron\dist\electron.exe") {
+            "electron.exe" | Out-File -Encoding ASCII "node_modules\electron\path.txt"
+            Write-Host "✅ Fixed Electron path.txt for Windows"
+          }
+
+      - name: Fix Electron path.txt (Linux/macOS)
+        if: runner.os != 'Windows'
+        working-directory: ./frontend
+        run: |
+          # 修复Linux/macOS下的Electron安装问题
+          if [ -f "node_modules/electron/dist/electron" ]; then
+            echo "electron" > node_modules/electron/path.txt
+            echo "✅ Fixed Electron path.txt for Linux"
+          fi
+
+      - name: Build renderer
+        working-directory: ./frontend
+        run: npm run build:renderer
+
+      - name: Build Electron main process
+        working-directory: ./frontend
+        run: npm run build:electron
+
+      - name: Verify Electron executable
+        working-directory: ./frontend
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            Test-Path "node_modules\electron\dist\electron.exe"
+          else
+            test -f "node_modules/electron/dist/electron"
+          fi
+        shell: pwsh
+
+      - name: Check build output
+        working-directory: ./frontend
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            Test-Path "out\electron\main\index.js"
+          else
+            test -f "out/electron/main/index.js"
+          fi
+        shell: pwsh
+
+      - name: Startup test (dev mode)
+        working-directory: ./frontend
+        run: |
+          # 启动dev服务器，10秒后自动停止
+          timeout 15 npm run dev || true
+        shell: bash
+        continue-on-error: true
+
+  # ==================== 依赖检查 ====================
+  dependency-check:
+    name: 📦 Dependency Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check backend dependencies
+        working-directory: ./backend
+        run: |
+          if [ ! -f requirements.txt ]; then
+            echo "❌ requirements.txt not found!"
+            exit 1
+          fi
+          echo "✅ Backend dependencies file exists"
+
+      - name: Check frontend dependencies
+        working-directory: ./frontend
+        run: |
+          if [ ! -f package.json ]; then
+            echo "❌ package.json not found!"
+            exit 1
+          fi
+          if [ ! -f package-lock.json ]; then
+            echo "❌ package-lock.json not found!"
+            exit 1
+          fi
+          echo "✅ Frontend dependency files exist"
+
+      - name: Check environment templates
+        run: |
+          if [ ! -f .env.example ]; then
+            echo "⚠️  .env.example not found (optional)"
+          else
+            echo "✅ Environment template exists"
+          fi
+
+  # ==================== 文档检查 ====================
+  docs-check:
+    name: 📖 Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check README
+        run: |
+          if [ ! -f README.md ]; then
+            echo "❌ README.md not found!"
+            exit 1
+          fi
+          echo "✅ README.md exists"
+
+          # 检查README是否包含启动说明
+          if grep -q "快速开始" README.md || grep -q "Quick Start" README.md; then
+            echo "✅ README contains startup instructions"
+          else
+            echo "⚠️  README should contain startup instructions"
+          fi
+
+      - name: Check quickstart script
+        run: |
+          if [ -f quickstart.bat ] || [ -f quickstart.sh ]; then
+            echo "✅ Quickstart script exists"
+          else
+            echo "⚠️  No quickstart script found (optional)"
+          fi

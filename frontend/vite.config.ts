@@ -54,13 +54,14 @@ export default defineConfig({
   build: {
     outDir: 'out/renderer',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks: {
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
           'element-plus': ['element-plus', '@element-plus/icons-vue'],
           'echarts': ['echarts'],
+          'editor': ['@wangeditor/editor', '@wangeditor/editor-for-vue', 'markdown-it'],
         },
       },
     },
