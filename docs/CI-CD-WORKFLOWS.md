@@ -29,6 +29,24 @@ AutoGeo项目使用GitHub Actions进行自动化CI/CD，确保代码质量和自
 
 验证**克隆仓库后能否正常启动前后端**，确保新用户clone下来不会遇到SB问题！
 
+### 触发条件
+
+```yaml
+on:
+  push:
+    branches: ['**']  # 任何分支的push都会触发
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:  # 允许手动触发
+```
+
+**重要说明**：
+- ✅ **任何文件修改**都会触发（没有paths限制）
+- ✅ push到任何分支都会触发
+- ✅ PR到master/main都会触发
+- ✅ 可以手动触发workflow
+- ⚠️ 这是**唯一**对所有修改都运行的CI
+
 ### Jobs
 
 #### 1. Backend Startup Check (后端启动验证)
@@ -78,6 +96,27 @@ AutoGeo项目使用GitHub Actions进行自动化CI/CD，确保代码质量和自
 ### 功能
 
 对backend代码进行**代码质量检查、类型检查、单元测试和安全扫描**。
+
+### 触发条件
+
+```yaml
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'backend/**'                      # backend目录下的任何文件
+      - '.github/workflows/backend-ci.yml' # workflow文件本身
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - 'backend/**'
+```
+
+**重要说明**：
+- ✅ 修改`backend/`目录下的任何文件会触发
+- ✅ 修改`.github/workflows/backend-ci.yml`会触发
+- ❌ 只修改文档或配置文件**不会触发**
+- ❌ 只修改frontend代码**不会触发**
 
 ### 检查内容总览
 
@@ -230,6 +269,27 @@ gitleaks detect --source . --log-level debug
 ### 功能
 
 对frontend代码进行**代码检查、类型检查、单元测试和构建验证**。
+
+### 触发条件
+
+```yaml
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'frontend/**'                         # frontend目录下的任何文件
+      - '.github/workflows/frontend-ci.yml'   # workflow文件本身
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - 'frontend/**'
+```
+
+**重要说明**：
+- ✅ 修改`frontend/`目录下的任何文件会触发
+- ✅ 修改`.github/workflows/frontend-ci.yml`会触发
+- ❌ 只修改文档或配置文件**不会触发**
+- ❌ 只修改backend代码**不会触发**
 
 ### Jobs
 
