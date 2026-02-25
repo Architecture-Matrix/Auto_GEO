@@ -9,16 +9,17 @@ files:
   - package.json
   # electron-builder 会自动打包 dependencies（从 package.json 读取）
   # 如果需要排除某些依赖，可以使用 ! 前缀
-extraResources:
-  - from: ../backend
-    to: backend
-    filter:
-      - '**/*'
-      - '!**/__pycache__'
-      - '!**/*.pyc'
-      - '!**/.pytest_cache'
-      - '!**/tests'
-      - '!**/.git'
+# 老王备注（2026-02-25）：后端部署到服务器，不需要打包backend目录
+# extraResources:
+#   - from: ../backend
+#     to: backend
+#     filter:
+#       - '**/*'
+#       - '!**/__pycache__'
+#       - '!**/*.pyc'
+#       - '!**/.pytest_cache'
+#       - '!**/tests'
+#       - '!**/.git'
 # 关闭 asar 打包，避免模块路径问题（老王我实测这玩意儿是个坑）
 asar: false
 win:
