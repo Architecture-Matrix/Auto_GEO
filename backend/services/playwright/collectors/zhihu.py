@@ -4,7 +4,6 @@
 爬取知乎热门文章！
 """
 
-import asyncio
 import re
 from typing import Dict, Any, Optional, List
 from playwright.async_api import Page
@@ -69,13 +68,13 @@ class ZhihuCollector(BaseCollector):
                 if current_page < max_pages:
                     next_button = await page.query_selector(self.SELECTORS["next_page_button"])
                     if next_button and await next_button.is_visible():
-                        logger.info(f"[知乎] 发现下一页按钮，准备点击...")
+                        logger.info("[知乎] 发现下一页按钮，准备点击...")
                         await next_button.scroll_into_view_if_needed()
                         await self._random_sleep(1, 2)
                         await next_button.click()
                         await page.wait_for_load_state("networkidle")
                     else:
-                        logger.info(f"[知乎] 未发现更多页码或按钮，停止翻页")
+                        logger.info("[知乎] 未发现更多页码或按钮，停止翻页")
                         break
             
             return all_articles

@@ -4,7 +4,6 @@
 """
 
 import sqlite3
-import os
 from pathlib import Path
 from loguru import logger
 

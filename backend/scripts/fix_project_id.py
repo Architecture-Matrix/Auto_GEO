@@ -11,7 +11,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.database import SessionLocal, engine
+from backend.database import SessionLocal
 from backend.database.models import GeoArticle, Keyword
 from loguru import logger
 

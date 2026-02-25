@@ -17,8 +17,6 @@ from backend.database.models import PublishRecord, Account, GeoArticle
 from backend.schemas import (
     ApiResponse,
     PublishTaskCreate,
-    PublishTaskResponse,
-    PublishProgressResponse,
     PublishProgressItem,
     PublishStatus,
 )
@@ -770,8 +768,6 @@ async def start_publish_immediately(
     async def execute_geo_publish_task():
         """专门用于 GeoArticle 的发布任务执行"""
         from backend.services.geo_article_service import GeoArticleService
-        from backend.database import SessionLocal
-        from datetime import datetime
 
         service = GeoArticleService(db)
         ws_mgr = get_ws_manager()

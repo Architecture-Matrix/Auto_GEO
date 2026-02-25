@@ -4,14 +4,14 @@
 解决了收录监控页关键词不显示的问题
 """
 
-from typing import List, Optional, Any
+from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.database.models import Project, Keyword, QuestionVariant
+from backend.database.models import Project, Keyword
 from backend.services.keyword_service import KeywordService
 from backend.schemas import ApiResponse
 from loguru import logger

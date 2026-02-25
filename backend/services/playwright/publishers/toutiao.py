@@ -225,7 +225,7 @@ class ToutiaoPublisher(BasePublisher):
 
                 # 尝试 2: 使用兜底图源 picsum.photos
                 if not downloaded:
-                    logger.warning(f"⚠️ pollinations.ai 失败，切换到兜底图源 picsum.photos...")
+                    logger.warning("⚠️ pollinations.ai 失败，切换到兜底图源 picsum.photos...")
                     # 重试 3 次
                     for retry in range(3):
                         downloaded = await _download_single_image(f"{fallback_url}?random={random.randint(1, 100000)}", i, is_fallback=True)
@@ -235,7 +235,7 @@ class ToutiaoPublisher(BasePublisher):
 
                 # 如果还是失败，使用随机 seed 再试一次兜底
                 if not downloaded:
-                    logger.warning(f"⚠️ 所有尝试均失败，使用最终兜底方案...")
+                    logger.warning("⚠️ 所有尝试均失败，使用最终兜底方案...")
                     downloaded = await _download_single_image(f"{fallback_url}?random={random.randint(1, 999999)}", i, is_fallback=True)
 
                 if downloaded:
@@ -544,7 +544,7 @@ class ToutiaoPublisher(BasePublisher):
                     total = await all_inputs.count()
                     if total > 0:
                         cover_input = all_inputs.last
-                        logger.info(f"✅ 使用最后一个 input")
+                        logger.info("✅ 使用最后一个 input")
 
                 if not cover_input or await cover_input.count() == 0:
                     logger.error("❌ 未找到任何 input[type='file']")

@@ -3,9 +3,6 @@ RAGFlow连接测试脚本
 用于测试与实际RAGFlow服务的连接
 """
 import json
-import sys
-import os
-import time
 from ragflow_integration import RAGFlowClient, GeoRAGFlowIntegration
 
 def load_config():
@@ -89,7 +86,7 @@ def test_search_functionality(config, dataset_id):
 
 def test_geo_integration(config):
     """测试GeoRAGFlowIntegration类"""
-    print(f"\n3. 测试GeoRAGFlowIntegration集成...")
+    print("\n3. 测试GeoRAGFlowIntegration集成...")
     
     try:
         # 创建集成实例
@@ -127,7 +124,7 @@ def run_complete_test():
     if not config:
         return False
     
-    print(f"使用配置:")
+    print("使用配置:")
     print(f"  URL: {config['base_url']}")
     print(f"  API Key: {'*' * (len(config['api_key']) - 4) + config['api_key'][-4:]}")  # 隐藏API密钥
     print(f"  Dataset ID: {config['dataset_id']}")

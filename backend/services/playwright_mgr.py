@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import (
     BROWSER_TYPE, BROWSER_ARGS, DEFAULT_USER_AGENT,
-    LOGIN_CHECK_INTERVAL, LOGIN_MAX_WAIT_TIME, PLATFORMS
+    PLATFORMS
 )
 from backend.services.crypto import encrypt_cookies, encrypt_storage_state, decrypt_cookies, decrypt_storage_state
 # 注意：这里我们只导入 registry，具体的发布器注册逻辑通常在应用启动时完成
@@ -227,7 +227,7 @@ class PlaywrightManager:
             return await self._finalize_auth(task_id_from_browser)
 
         await context.expose_function("confirmAuth", confirm_auth_wrapper)
-        logger.info(f"[Auth] confirmAuth 函数已注入")
+        logger.info("[Auth] confirmAuth 函数已注入")
 
         # Tab 1: 打开目标平台登录页
         login_page = await context.new_page()
@@ -373,7 +373,7 @@ class PlaywrightManager:
                         # 如果在登录页面，则表示未登录成功
                         if any(x in current_url for x in ["/login", "/bind", "/captcha", "/oauth"]):
                             has_auth = False
-                            logger.warning(f"[Auth] 微信公众号仍在登录页，需要完成登录")
+                            logger.warning("[Auth] 微信公众号仍在登录页，需要完成登录")
                         else:
                             # 已登录到公众号平台，直接视为成功，跳过Cookie检查
                             has_auth = True
@@ -850,7 +850,7 @@ class PlaywrightManager:
 
                     # 兼容旧数据格式：如果缺少 cookies 字段，从 account.cookies 补充
                     if isinstance(state_data, dict) and "cookies" not in state_data and account.cookies:
-                        logger.warning(f"storage_state缺少cookies字段，使用独立cookies")
+                        logger.warning("storage_state缺少cookies字段，使用独立cookies")
                         state_data["cookies"] = decrypt_cookies(account.cookies)
                 except:
                     logger.warning(f"账号 {account.account_name} Session 解析失败，尝试裸奔")

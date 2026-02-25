@@ -4,7 +4,7 @@
 管理客户信息，一个客户可以有多个项目
 """
 
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from loguru import logger

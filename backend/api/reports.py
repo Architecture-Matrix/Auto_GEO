@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Query, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Integer, desc, case
+from sqlalchemy import func, cast, Integer, case
 from backend.database import get_db
-from backend.database.models import Project, Keyword, IndexCheckRecord, GeoArticle, PublishRecord, Account, QuestionVariant
+from backend.database.models import Project, Keyword, IndexCheckRecord, GeoArticle, QuestionVariant
 from backend.schemas import ApiResponse
 from loguru import logger
 

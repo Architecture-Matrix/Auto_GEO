@@ -7,7 +7,7 @@
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from pydantic import BaseModel, field_serializer, ConfigDict
+from pydantic import BaseModel, field_serializer
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -290,7 +290,7 @@ async def get_project_analytics(
     
     return ApiResponse(
         success=True,
-        message=f"获取项目分析数据成功",
+        message="获取项目分析数据成功",
         data=analytics
     )
 
@@ -311,7 +311,7 @@ async def get_platform_performance(
     
     return ApiResponse(
         success=True,
-        message=f"获取平台表现数据成功",
+        message="获取平台表现数据成功",
         data=performance
     )
 
@@ -339,7 +339,7 @@ async def get_project_summary(
     # 只返回摘要信息
     return ApiResponse(
         success=True,
-        message=f"获取项目摘要数据成功",
+        message="获取项目摘要数据成功",
         data={
             "project_name": analytics["project_name"],
             "company_name": analytics["company_name"],

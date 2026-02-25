@@ -183,7 +183,7 @@ class GeoArticleService:
             state_data = decrypt_storage_state(account.storage_state)
             if not state_data:
                 state_data = json.loads(account.storage_state)
-        except Exception as e:
+        except Exception:
             db_article.publish_status = "failed"
             db_article.error_msg = "Session解析失败"
             self.db.commit()

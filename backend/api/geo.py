@@ -5,7 +5,7 @@ GEO文章管理 API - 工业加固版
 """
 
 import asyncio
-from typing import List, Optional, Any
+from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,7 +16,6 @@ from backend.database import get_db, SessionLocal
 from backend.services.geo_article_service import GeoArticleService
 from backend.database.models import GeoArticle, Project, Keyword
 from backend.schemas import ApiResponse
-from backend.config import N8N_CALLBACK_URL
 from loguru import logger
 
 router = APIRouter(prefix="/api/geo", tags=["GEO文章"])

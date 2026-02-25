@@ -6,9 +6,7 @@ AutoGeo 后端主程序
 import sys
 import os
 import asyncio
-from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import List
 import uuid
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -21,7 +19,7 @@ from backend.config import (
     APP_NAME, APP_VERSION, DEBUG, HOST, PORT, RELOAD,
     CORS_ORIGINS, PLATFORMS
 )
-from backend.database import init_db, get_db, engine, SessionLocal
+from backend.database import init_db, SessionLocal
 from backend.scripts.fix_database import check_and_fix_database
 
 # 导入所有 API 路由模块
@@ -47,7 +45,6 @@ from backend.services.scheduler_service import get_scheduler_service
 from backend.services.n8n_service import get_n8n_service
 from backend.services.playwright_mgr import playwright_mgr
 from backend.services.playwright.publishers import register_publishers
-from backend.config import PLATFORMS
 
 
 # ==================== 日志拦截器（核心监控功能） ====================
@@ -71,7 +68,7 @@ def socket_log_sink(message):
             pass
         except Exception:
             pass
-    except Exception as e:
+    except Exception:
         pass
 
 

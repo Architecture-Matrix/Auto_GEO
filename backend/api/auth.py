@@ -7,7 +7,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List
 from loguru import logger
 
 from backend.database.models import User, Project

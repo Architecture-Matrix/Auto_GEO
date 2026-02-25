@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 
 from backend.database.models import Project, Keyword, IndexCheckRecord
-from backend.config import AI_PLATFORMS
 
 
 @dataclass

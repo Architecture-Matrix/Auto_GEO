@@ -9,7 +9,7 @@ import re
 from typing import List, Dict, Any, Optional, Callable, Tuple
 from datetime import datetime
 from loguru import logger
-from playwright.async_api import async_playwright, Browser, BrowserContext, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright, Browser, TimeoutError as PlaywrightTimeoutError
 
 from backend.config import PLATFORMS, BROWSER_ARGS
 from backend.services.crypto import decrypt_cookies, decrypt_storage_state
@@ -239,12 +239,12 @@ class AccountValidator:
             # 解密存储状态
             storage_state = decrypt_storage_state(account.storage_state)
             if not storage_state or not isinstance(storage_state, dict):
-                logger.warning(f"storage_state解密失败或格式错误，尝试使用cookies")
+                logger.warning("storage_state解密失败或格式错误，尝试使用cookies")
                 storage_state = {"cookies": decrypt_cookies(account.cookies)}
             else:
                 # 兼容旧数据格式：如果缺少 cookies 字段，从 account.cookies 补充
                 if "cookies" not in storage_state and account.cookies:
-                    logger.warning(f"storage_state缺少cookies字段，使用独立cookies")
+                    logger.warning("storage_state缺少cookies字段，使用独立cookies")
                     storage_state["cookies"] = decrypt_cookies(account.cookies)
 
             logger.debug(f"账号 {account.account_name} 准备创建浏览器上下文")

@@ -107,7 +107,7 @@ class KeywordService:
                 result = await n8n.distill_keywords(keywords=legacy_keywords_list, project_id=None)
 
             if result.status == "success":
-                logger.success(f"✅ n8n 响应成功")
+                logger.success("✅ n8n 响应成功")
 
                 # 3. 健壮的数据解析
                 raw_data = result.data

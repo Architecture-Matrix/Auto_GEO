@@ -5,7 +5,6 @@
 """
 
 import sys
-import os
 from pathlib import Path
 
 # 添加项目根目录到Python路径
@@ -74,7 +73,7 @@ def add_test_data():
         # 验证数据
         project_count = db.query(Project).count()
         keyword_count = db.query(Keyword).count()
-        print(f"\n数据验证：")
+        print("\n数据验证：")
         print(f"项目总数: {project_count}")
         print(f"关键词总数: {keyword_count}")
         

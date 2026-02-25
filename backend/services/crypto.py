@@ -10,7 +10,7 @@ from loguru import logger
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List
 
 from backend.config import ENCRYPTION_KEY
 
@@ -65,7 +65,7 @@ class CryptoService:
         try:
             decrypted_bytes = self._fernet.decrypt(encrypted_str.encode('utf-8'))
             return decrypted_bytes.decode('utf-8')
-        except Exception as e:
+        except Exception:
             # 这种情况通常发生在密钥被修改后尝试解密旧数据
             logger.warning("⚠️ 解密失败：可能是密钥不匹配或数据损坏")
             return ""

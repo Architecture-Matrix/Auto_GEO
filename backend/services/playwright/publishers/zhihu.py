@@ -14,7 +14,7 @@ import tempfile
 import base64
 import random
 import urllib.parse
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from playwright.async_api import Page
 from loguru import logger
 

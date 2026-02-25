@@ -8,20 +8,18 @@ import asyncio
 import re
 import random
 import os
-import json
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from dataclasses import asdict
 from loguru import logger
 from sqlalchemy.orm import Session
-from playwright.async_api import Page, BrowserContext
+from playwright.async_api import Page
 
 from backend.services.playwright_mgr import playwright_mgr
 from backend.services.playwright.collectors import (
     get_collector,
     list_collectors,
     register_collectors,
-    CollectedArticle,
 )
 from backend.services.ragflow_client import get_ragflow_client
 from backend.config import (

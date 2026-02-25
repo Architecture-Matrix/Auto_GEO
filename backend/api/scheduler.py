@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db

@@ -4,15 +4,14 @@
 写的文章API，简单明了！
 """
 
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.database.models import GeoArticle
-from backend.schemas import ArticleCreate, ArticleUpdate, ArticleResponse, ArticleListResponse, ApiResponse
+from backend.schemas import ApiResponse
 from loguru import logger
-from sqlalchemy import func
 from pydantic import BaseModel
 
 

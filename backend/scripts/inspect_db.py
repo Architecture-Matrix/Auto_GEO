@@ -39,7 +39,7 @@ def inspect_article(article_id: int = 1):
 
             # 显示所有文章列表
             all_articles = db.query(GeoArticle).all()
-            print(f"\n数据库中所有文章列表：")
+            print("\n数据库中所有文章列表：")
             for a in all_articles[:10]:  # 只显示前10个
                 print(f"  ID: {a.id}, 标题: {a.title[:30]}, publish_status: {a.publish_status}")
 

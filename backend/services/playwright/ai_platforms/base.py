@@ -5,8 +5,8 @@ AI平台检测器基类
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
-from playwright.async_api import Page, BrowserContext
+from typing import Dict, Any, List
+from playwright.async_api import Page
 from loguru import logger
 import asyncio
 import time
@@ -276,7 +276,7 @@ class AIPlatformChecker(ABC):
         combined_selector = ", ".join(unique_selectors)
         
         try:
-            self._log("debug", f"尝试并行等待选择器组合")
+            self._log("debug", "尝试并行等待选择器组合")
             # 等待任意一个选择器出现
             element = await page.wait_for_selector(
                 combined_selector, 
@@ -297,7 +297,7 @@ class AIPlatformChecker(ABC):
                         continue
                 
                 # 如果找不到具体的，就返回组合选择器或第一个
-                self._log("info", f"选择器组合匹配成功")
+                self._log("info", "选择器组合匹配成功")
                 return True, unique_selectors[0]
                 
         except Exception as e:
@@ -739,14 +739,14 @@ class AIPlatformChecker(ABC):
             # 避免使用 fill，因为它可能不会触发某些前端框架的 change 事件
             try:
                 # 先尝试清空内容 (如果是 input/textarea)
-                await page.evaluate(f"""(selector) => {{
+                await page.evaluate("""(selector) => {
                     const el = document.querySelector(selector);
-                    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {{
+                    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
                         el.value = '';
-                    }} else if (el) {{
+                    } else if (el) {
                         el.innerText = '';
-                    }}
-                }}""", input_selector)
+                    }
+                }""", input_selector)
                 
                 # 模拟打字
                 await page.keyboard.type(question, delay=30)
@@ -756,11 +756,11 @@ class AIPlatformChecker(ABC):
                 return False
                 
             # 3. 验证输入结果
-            input_value = await page.evaluate(f"""(selector) => {{
+            input_value = await page.evaluate("""(selector) => {
                 const el = document.querySelector(selector);
                 if (!el) return null;
                 return el.value || el.innerText || el.textContent;
-            }}""", input_selector)
+            }""", input_selector)
             
             if not input_value or len(input_value.strip()) == 0:
                 self._log("warning", "检测到输入框为空，尝试使用 fill 作为回退方案")

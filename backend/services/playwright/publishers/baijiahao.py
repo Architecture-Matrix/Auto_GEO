@@ -444,7 +444,7 @@ class BaijiahaoPublisher(BasePublisher):
                                 break
                         if upload_clicked:
                             break
-                    except Exception as e:
+                    except Exception:
                         continue
 
                 if not upload_clicked:
@@ -710,7 +710,7 @@ class BaijiahaoPublisher(BasePublisher):
                                 break
                         if clicked:
                             break
-                except Exception as e:
+                except Exception:
                     continue
 
             if not clicked:

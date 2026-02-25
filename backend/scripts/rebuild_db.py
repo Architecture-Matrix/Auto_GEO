@@ -11,13 +11,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.database import engine, Base, SessionLocal
-from backend.database.models import (
-    Account, PublishRecord,
-    Project, Keyword, QuestionVariant,
-    IndexCheckRecord, GeoArticle,
-    KnowledgeCategory, Knowledge
-)
+from backend.database import engine, Base
 from loguru import logger
 
 def rebuild_database():

@@ -3,8 +3,7 @@ RAGFlow与geo项目集成模块（同事提供版本）
 提供与RAGFlow知识库交互的功能
 """
 import requests
-import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List
 import logging
 
 # 配置日志
@@ -139,8 +138,6 @@ class RAGFlowClient:
             response = requests.post(url, json=payload, headers=self.headers)
             # 如果 404，尝试备选路径
             if response.status_code == 404:
-                # 尝试另一种常见的 RAGFlow 解析触发路径
-                alt_url = f"{self.base_url}/api/v1/document/run" # 保持用户提供的，但记录错误
                 logger.warning(f"Analysis URL {url} returned 404, please verify if the cloud API path is correct.")
             
             response.raise_for_status()

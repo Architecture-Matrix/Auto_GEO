@@ -5,7 +5,7 @@ RAGFlow与geo项目集成框架测试脚本
 import json
 import sys
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # 添加项目路径到系统路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))

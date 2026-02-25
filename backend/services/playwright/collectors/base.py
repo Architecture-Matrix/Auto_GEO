@@ -9,7 +9,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from playwright.async_api import Page, BrowserContext
+from playwright.async_api import Page
 from loguru import logger
 
 

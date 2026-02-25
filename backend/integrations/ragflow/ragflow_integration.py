@@ -3,8 +3,7 @@ RAGFlow与geo项目集成模块
 提供与RAGFlow知识库交互的功能
 """
 import requests
-import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List
 import logging
 
 # 配置日志

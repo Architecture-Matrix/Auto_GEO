@@ -6,7 +6,7 @@ Playwright发布适配器
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from playwright.async_api import Page, BrowserContext
+from playwright.async_api import Page
 from loguru import logger
 
 

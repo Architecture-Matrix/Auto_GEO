@@ -12,7 +12,7 @@ import json
 import os
 from typing import Any, Literal, Optional, List, Dict
 from loguru import logger
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 from backend.config import N8N_CALLBACK_URL
 
@@ -158,10 +158,10 @@ class N8nService:
                 except json.JSONDecodeError:
                     # v2.0: 增强兼容性 - 如果 n8n 返回纯文本（非 JSON），尝试作为成功数据处理
                     if raw_text and not raw_text.strip().startswith(("{", "[")):
-                        self.log.warning(f"⚠️ n8n 返回了非 JSON 文本，尝试作为纯文本处理")
+                        self.log.warning("⚠️ n8n 返回了非 JSON 文本，尝试作为纯文本处理")
                         return N8nResponse(status="success", data={"text_content": raw_text})
 
-                    self.log.error(f"❌ n8n 响应解析失败")
+                    self.log.error("❌ n8n 响应解析失败")
                     self.log.error(f"🔍 原始响应:\n{raw_text[:500]}")
 
                     if "Workflow was started" in raw_text:
@@ -192,7 +192,7 @@ class N8nService:
             keywords: Optional[List[str]] = None,
             project_id: Optional[int] = None
     ) -> N8nResponse:
-        self.log.info(f"🧹 正在蒸馏提纯关键词...")
+        self.log.info("🧹 正在蒸馏提纯关键词...")
         payload = KeywordDistillRequest(
             keywords=keywords,
             project_id=project_id,
@@ -204,7 +204,7 @@ class N8nService:
         return await self._call_webhook("keyword-distill", payload)
 
     async def generate_questions(self, question: str, count: int = 10) -> N8nResponse:
-        self.log.info(f"❓ 正在基于原题扩展变体...")
+        self.log.info("❓ 正在基于原题扩展变体...")
         payload = GenerateQuestionsRequest(question=question, count=count).model_dump()
         return await self._call_webhook("generate-questions", payload)
 
@@ -242,7 +242,7 @@ class N8nService:
             deepseek_indexed: bool,
             history: Optional[List[Dict]] = None
     ) -> N8nResponse:
-        self.log.info(f"📊 正在请求 AI 深度分析收录趋势...")
+        self.log.info("📊 正在请求 AI 深度分析收录趋势...")
         payload = IndexCheckAnalysisRequest(
             keyword=keyword,
             doubao_indexed=doubao_indexed,

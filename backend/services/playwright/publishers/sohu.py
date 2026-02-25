@@ -23,7 +23,6 @@ import os
 import httpx
 import tempfile
 import random
-import base64
 import urllib.parse
 from typing import Dict, Any, List, Optional
 from playwright.async_api import Page

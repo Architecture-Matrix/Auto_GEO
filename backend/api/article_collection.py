@@ -4,7 +4,6 @@
 用于采集各平台热门文章！
 """
 
-import asyncio
 import uuid
 from typing import List, Optional
 from datetime import datetime
@@ -16,7 +15,6 @@ from backend.database import get_db
 from backend.database.models import ReferenceArticle
 from backend.services.article_collector_service import ArticleCollectorService
 from backend.schemas import ApiResponse
-from backend.config import PLATFORMS
 from loguru import logger
 
 

@@ -183,25 +183,31 @@ jobs:
         working-directory: ./frontend
         run: npm run build:electron
 
-      - name: Verify Electron executable
+      - name: Verify Electron executable (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
         working-directory: ./frontend
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            Test-Path "node_modules\electron\dist\electron.exe"
-          else
-            test -f "node_modules/electron/dist/electron"
-          fi
-        shell: bash
+          Test-Path "node_modules\electron\dist\electron.exe"
 
-      - name: Check build output
+      - name: Verify Electron executable (Linux)
+        if: runner.os != 'Windows'
         working-directory: ./frontend
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            Test-Path "out\electron\main\index.js"
-          else
-            test -f "out/electron/main/index.js"
-          fi
-        shell: bash
+          test -f "node_modules/electron/dist/electron"
+
+      - name: Check build output (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        working-directory: ./frontend
+        run: |
+          Test-Path "out\electron\main\index.js"
+
+      - name: Check build output (Linux)
+        if: runner.os != 'Windows'
+        working-directory: ./frontend
+        run: |
+          test -f "out/electron/main/index.js"
 
       - name: Startup test (dev mode)
         working-directory: ./frontend

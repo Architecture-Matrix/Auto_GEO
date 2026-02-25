@@ -2,9 +2,7 @@
 依赖检查脚本 - 检查 requirements.txt 里所有包是否已安装
 老王出品，必属精品
 """
-import ast
 import sys
-import subprocess
 from pathlib import Path
 
 

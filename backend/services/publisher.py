@@ -13,12 +13,7 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 from ..config import (
     PLATFORMS,
-    BROWSER_TYPE,
     BROWSER_ARGS,
-    USER_DATA_DIR,
-    PUBLISH_TIMEOUT,
-    MAX_RETRY_COUNT,
-    RETRY_INTERVAL,
 )
 from .crypto import CryptoService
 from ..database.models import Account, GeoArticle, PublishRecord

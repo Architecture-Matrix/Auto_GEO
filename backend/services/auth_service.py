@@ -5,18 +5,16 @@
 """
 
 import asyncio
-import json
 import uuid
 import os
 import sys
-import subprocess
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from datetime import datetime, timedelta
 from loguru import logger
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Browser
 
-from backend.config import AI_PLATFORMS, BROWSER_TYPE, BROWSER_ARGS, DEFAULT_USER_AGENT
+from backend.config import AI_PLATFORMS, BROWSER_ARGS, DEFAULT_USER_AGENT
 from backend.services.session_manager import secure_session_manager
 
 
@@ -724,7 +722,6 @@ class AuthService:
             (browser, context, page, debug_url) 元组
         """
         # 确保配置已加载
-        from backend.config import BROWSER_ARGS
         
         try:
             logger.info("开始启动授权浏览器...")
@@ -803,7 +800,7 @@ class AuthService:
                             browser = await playwright.chromium.launch(**launch_options)
                         else:
                             logger.error(f"自动安装失败: {stderr.decode()}")
-                            raise Exception(f"自动安装浏览器失败，请手动执行 'playwright install'")
+                            raise Exception("自动安装浏览器失败，请手动执行 'playwright install'")
                             
                     except Exception as install_error:
                         logger.error(f"自动安装过程异常: {install_error}")

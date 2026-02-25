@@ -11,7 +11,6 @@ from playwright.async_api import async_playwright, Browser
 import asyncio
 import os
 import sys
-import subprocess
 from datetime import datetime
 
 from backend.database.models import IndexCheckRecord, Keyword, QuestionVariant, Project
@@ -112,7 +111,7 @@ class IndexCheckService:
                         browser = await playwright.chromium.launch(**launch_options)
                     else:
                         logger.error(f"自动安装失败: {stderr.decode()}")
-                        raise Exception(f"自动安装浏览器失败，请手动执行 'playwright install'")
+                        raise Exception("自动安装浏览器失败，请手动执行 'playwright install'")
                         
                 except Exception as install_error:
                     logger.error(f"自动安装过程异常: {install_error}")
@@ -270,7 +269,6 @@ class IndexCheckService:
         # 导入会话管理器
         from backend.services.session_manager import secure_session_manager
         # 导入UTC时间处理
-        from datetime import datetime, timezone
         
         async with async_playwright() as p:
             # 使用统一的启动逻辑

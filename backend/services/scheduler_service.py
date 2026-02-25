@@ -5,8 +5,6 @@
 """
 
 import asyncio
-import random
-from typing import Optional, Dict
 from datetime import datetime
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -182,7 +180,8 @@ class SchedulerService:
 
         注意：不扫描 completed 状态的文章（等待用户在批量发布页面配置）
         """
-        if not self.db_factory: return
+        if not self.db_factory:
+            return
         db = self.db_factory()
         try:
             now = datetime.now()
