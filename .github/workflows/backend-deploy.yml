@@ -117,10 +117,23 @@ jobs:
             docker version
             echo "✅ 服务器状态正常"
 
-            # 拉取最新镜像（老王备注：先删除旧镜像确保拉取最新版本）
+            echo "📋 开始部署流程..."
+
+            # 第1步：停止并删除旧容器（老王备注：必须先停止容器才能删除镜像）
+            echo "⏹️  停止旧容器..."
+            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
+              docker stop $CONTAINER_NAME || true
+              docker rm $CONTAINER_NAME || true
+              echo "✅ 旧容器已停止并删除"
+            else
+              echo "ℹ️  没有运行中的旧容器"
+            fi
+
+            # 第2步：删除旧镜像（老王备注：容器停止后才能删除镜像）
             echo "🗑️  删除旧镜像..."
             docker rmi $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest 2>/dev/null || echo "旧镜像不存在，继续"
 
+            # 第3步：拉取最新镜像
             echo "📦 拉取最新镜像..."
             echo "开始时间: $(date)"
             timeout 900 docker pull $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest
@@ -142,19 +155,8 @@ jobs:
               exit 1
             fi
 
-            echo "📋 继续部署流程..."
-
-            # 停止并删除旧容器
-            echo "⏹️  停止旧容器..."
-            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
-              docker stop $CONTAINER_NAME || true
-              docker rm $CONTAINER_NAME || true
-              echo "✅ 旧容器已停止"
-            else
-              echo "ℹ️ 没有运行中的旧容器"
-            fi
-
-            echo "📋 准备创建数据目录..."
+            # 第4步：创建数据目录
+            echo "📋 准备数据目录..."
 
             # 创建数据目录（老王备注：确保容器内用户可写）
             echo "📁 创建数据目录..."
@@ -168,7 +170,7 @@ jobs:
 
             echo "📋 准备启动容器..."
 
-            # 启动新容器
+            # 第5步：启动新容器
             echo "🚀 启动新容器..."
             CONTAINER_ID=$(docker run -d \
               --name $CONTAINER_NAME \
