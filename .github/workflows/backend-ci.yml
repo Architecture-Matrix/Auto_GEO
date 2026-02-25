@@ -23,23 +23,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'uv'
+          cache: 'pip'
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         working-directory: ./backend
         run: |
-          uv pip install -r requirements.txt
-          uv pip install ruff mypy types-redis
+          pip install -r requirements.txt
+          pip install ruff mypy types-redis
 
       - name: Run Ruff
         working-directory: ./backend
@@ -60,23 +55,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'uv'
+          cache: 'pip'
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         working-directory: ./backend
         run: |
-          uv pip install -r requirements.txt
-          uv pip install pytest pytest-cov pytest-asyncio
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
 
       - name: Install Playwright browsers
         run: playwright install chromium

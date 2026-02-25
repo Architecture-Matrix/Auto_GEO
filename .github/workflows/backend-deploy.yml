@@ -126,6 +126,9 @@ jobs:
             echo "📁 创建数据目录..."
             mkdir -p ~/autogeo/data ~/autogeo/logs ~/autogeo/database ~/autogeo/cookies
 
+            # 修复权限问题（容器内UID=1000）
+            chmod -R 755 ~/autogeo
+
             # 启动新容器
             echo "🚀 启动新容器..."
             docker run -d \

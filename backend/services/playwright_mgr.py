@@ -145,8 +145,19 @@ class PlaywrightManager:
             if "--disable-gpu" not in args:
                 args.append("--disable-gpu")
 
+        # 检测是否在Docker环境中（老王备注：Docker必须用headless）
+        is_docker = os.path.exists('/.dockerenv')
+        if not is_docker:
+            try:
+                with open('/proc/1/cgroup', 'r') as f:
+                    is_docker = 'docker' in f.read()
+            except:
+                pass
+        # 或通过环境变量强制headless
+        force_headless = os.getenv('PLAYWRIGHT_HEADLESS', '').lower() == 'true'
+
         launch_options = {
-            "headless": False,  # 授权和发布通常需要有头模式，或者由上层控制
+            "headless": is_docker or force_headless,  # Docker环境强制headless
             "args": args
         }
 
