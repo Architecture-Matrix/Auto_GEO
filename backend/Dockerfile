@@ -187,9 +187,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8001/api/health || exit 1
 
 # 启动命令
-# 老王备注：代码在/app/backend/下，所以模块路径是backend.main
-CMD ["uvicorn", "backend.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8001", \
-     "--workers", "1", \
-     "--log-level", "info"]
+# 老王备注：用-m方式启动，让Python正确处理模块路径
+# -m backend.main 会把/backend添加到sys.path
+CMD ["python", "-m", "backend.main"]
