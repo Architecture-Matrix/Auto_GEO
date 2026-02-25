@@ -170,10 +170,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN mkdir -p /app/backend
 COPY --chown=autogeo:autogeo . /app/backend/
 
+# 老王备注：创建 backend 包的父结构，确保能正确导入
+# 容器内结构：/app/backend/main.py, /app/backend/database/, 等
+# 我们需要让 /app/backend 成为可导入的 backend 包
+
 # 设置PYTHONPATH和工作目录
 # 老王备注：PYTHONPATH=/app 让 from backend.xxx import 正常工作
 ENV PYTHONPATH="/app"
-WORKDIR /app/backend
+WORKDIR /app
 
 # 生产环境变量
 ENV N8N_WEBHOOK_URL=https://n8n.opencaio.cn/webhook \
@@ -192,5 +196,6 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8001/api/health || exit 1
 
-# 启动命令
-CMD ["python", "main.py"]
+# 老王备注：使用 -m 参数以模块方式运行，这样 sys.path[0] 会是 /app 而不是 /app/backend
+# 这样 from backend.database import 就能正确解析了
+CMD ["python", "-m", "backend.main"]
