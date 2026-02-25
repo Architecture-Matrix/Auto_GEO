@@ -65,9 +65,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
             type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=gha,mode=max
-          # 老王备注：禁用registry缓存，确保Dockerfile修改生效
+          # 老王备注：压缩镜像层，加快拉取速度
+          compression: zstd
+          compression-level: 9
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             VCS_REF=${{ github.sha }}
@@ -92,86 +93,123 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          script_stop: false  # 老王备注：改为false，避免单步失败就停止
-          timeout: 1200s  # 老王备注：20分钟总超时
-          command_timeout: 900s  # 老王备注：单个命令15分钟超时
+          script_stop: false
+          timeout: 1800s  # 老王备注：30分钟总超时
+          command_timeout: 1800s  # 老王备注：单个命令30分钟超时
           script: |
-            set -e  # 遇到错误立即退出
+            set -e
 
             echo "🚀 开始部署 AutoGeo 后端..."
 
             # 设置变量
-            IMAGE_NAME="auto_geo_backend"
-            REGISTRY="ghcr.io"
-            REPO_OWNER="architecture-matrix"
+            IMAGE_FULL="ghcr.io/architecture-matrix/auto_geo_backend:latest"
             CONTAINER_NAME="autogeo-backend"
             PORT="${{ secrets.BACKEND_PORT || 8001 }}"
+            MAX_RETRIES=3  # 老王备注：最多重试3次
+            RETRY_DELAY=10  # 老王备注：重试间隔10秒
 
-            # 登录到 GHCR（老王备注：服务器也需要认证才能拉取私有镜像）
+            # 登录到 GHCR
             echo "🔐 登录到 GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u "${{ github.actor }}" --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            # 诊断：检查磁盘空间
+            # 检查服务器状态
             echo "📊 检查服务器状态..."
+            echo "=== 磁盘空间 ==="
             df -h
-            docker version
-            echo "✅ 服务器状态正常"
+            echo "=== Docker 版本 ==="
+            docker version --format '{{.Server.Version}}'
+            echo "=== 当前镜像列表 ==="
+            docker images | grep auto_geo_backend || echo "无现有镜像"
 
-            echo "📋 开始部署流程..."
+            # ============================================
+            # 新策略：先拉取新镜像，成功后再停止旧容器
+            # 优点：减少停机时间，拉取失败不影响服务
+            # ============================================
 
-            # 第1步：停止并删除旧容器（老王备注：必须先停止容器才能删除镜像）
-            echo "⏹️  停止旧容器..."
-            if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
-              docker stop $CONTAINER_NAME || true
-              docker rm $CONTAINER_NAME || true
-              echo "✅ 旧容器已停止并删除"
-            else
-              echo "ℹ️  没有运行中的旧容器"
+            echo ""
+            echo "📦 第一步：拉取最新镜像（带重试机制）..."
+
+            PULL_SUCCESS=0
+            for attempt in $(seq 1 $MAX_RETRIES); do
+              echo ""
+              echo "=== 第 $attempt 次尝试拉取镜像 ==="
+              echo "开始时间: $(date)"
+
+              # 清理Docker系统缓存（老王备注：有时候缓存会坏）
+              if [ $attempt -gt 1 ]; then
+                echo "清理Docker缓存..."
+                docker system prune -f --volumes || true
+              fi
+
+              # 拉取镜像（不设置timeout，让Docker自己处理）
+              if docker pull $IMAGE_FULL 2>&1 | tee /tmp/pull.log; then
+                PULL_SUCCESS=1
+                echo "✅ 镜像拉取成功！"
+                echo "结束时间: $(date)"
+
+                # 显示镜像信息
+                echo "=== 新镜像信息 ==="
+                docker images $IMAGE_FULL --format "镜像ID: {{.ID}}\n创建时间: {{.Created}}\n大小: {{.Size}}"
+                break
+              else
+                PULL_EXIT_CODE=${PIPESTATUS[0]}
+                echo "❌ 第 $attempt 次拉取失败，退出码: $PULL_EXIT_CODE"
+                echo "结束时间: $(date)"
+
+                if [ $attempt -lt $MAX_RETRIES ]; then
+                  echo "⏳ 等待 $RETRY_DELAY 秒后重试..."
+                  sleep $RETRY_DELAY
+                else
+                  echo "❌ 已达到最大重试次数，放弃拉取"
+                  echo ""
+                  echo "=== 拉取日志（最后50行）==="
+                  tail -50 /tmp/pull.log
+                  exit 1
+                fi
+              fi
+            done
+
+            if [ $PULL_SUCCESS -ne 1 ]; then
+              echo "❌ 镜像拉取最终失败"
+              exit 1
             fi
 
-            # 第2步：删除旧镜像（老王备注：容器停止后才能删除镜像）
-            echo "🗑️  删除旧镜像..."
-            docker rmi $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest 2>/dev/null || echo "旧镜像不存在，继续"
+            echo ""
+            echo "⏹️  第二步：停止旧容器..."
 
-            # 第3步：拉取最新镜像
-            echo "📦 拉取最新镜像..."
-            echo "开始时间: $(date)"
-            timeout 900 docker pull $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest
-            PULL_EXIT_CODE=$?
-            echo "结束时间: $(date)"
-            echo "docker pull退出码: $PULL_EXIT_CODE"
-
-            if [ $PULL_EXIT_CODE -eq 0 ]; then
-              echo "✅ 镜像拉取成功"
-              # 显示镜像信息
-              docker images $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest --format "镜像ID: {{.ID}} | 创建时间: {{.Created}} | 大小: {{.Size}}"
-            elif [ $PULL_EXIT_CODE -eq 124 ]; then
-              echo "❌ 镜像拉取超时（15分钟）"
-              echo "可能原因：磁盘空间不足或Docker daemon问题"
-              df -h
-              exit 1
+            # 检查旧容器是否存在
+            if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
+                echo "发现旧容器，正在停止..."
+                docker stop $CONTAINER_NAME || true
+                docker rm $CONTAINER_NAME || true
+                echo "✅ 旧容器已停止并删除"
             else
-              echo "❌ 镜像拉取失败，退出码: $PULL_EXIT_CODE"
-              exit 1
+                echo "ℹ️  没有旧容器"
             fi
 
-            # 第4步：创建数据目录
-            echo "📋 准备数据目录..."
+            echo ""
+            echo "🗑️  第三步：删除旧镜像..."
 
-            # 创建数据目录（老王备注：确保容器内用户可写）
-            echo "📁 创建数据目录..."
+            # 删除旧镜像（保留当前使用的）
+            OLD_IMAGES=$(docker images $IMAGE_FULL --format "{{.ID}}" | tail -n +2)
+            if [ -n "$OLD_IMAGES" ]; then
+              echo "删除旧镜像: $OLD_IMAGES"
+              echo $OLD_IMAGES | xargs docker rmi -f 2>/dev/null || echo "部分旧镜像删除失败，继续"
+            fi
+
+            echo ""
+            echo "📁 第四步：准备数据目录..."
+
             mkdir -p ~/autogeo/data ~/autogeo/logs ~/autogeo/database ~/autogeo/cookies
-            echo "✅ 数据目录创建完成"
-
-            # 修复权限（简单粗暴：给所有人写权限）
-            echo "🔑 修复目录权限..."
             chmod -R 777 ~/autogeo
-            echo "✅ 权限修复完成"
+            echo "✅ 数据目录准备完成"
 
-            echo "📋 准备启动容器..."
+            echo ""
+            echo "🚀 第五步：启动新容器..."
 
-            # 第5步：启动新容器
-            echo "🚀 启动新容器..."
+            # 先删除可能存在的同名容器（防止名称冲突）
+            docker rm -f $CONTAINER_NAME 2>/dev/null || true
+
             CONTAINER_ID=$(docker run -d \
               --name $CONTAINER_NAME \
               --restart unless-stopped \
@@ -185,72 +223,70 @@ jobs:
               -e PYTHONUNBUFFERED=1 \
               -e N8N_BASE_URL=https://n8n.opencaio.cn \
               -e RAGFLOW_BASE_URL=https://ragflow.xinzhixietong.com \
-              $REGISTRY/$REPO_OWNER/$IMAGE_NAME:latest)
+              --health-cmd="curl -f http://localhost:8001/api/health || exit 1" \
+              --health-interval=30s \
+              --health-timeout=10s \
+              --health-retries=3 \
+              $IMAGE_FULL)
+
             echo "✅ 容器已启动，ID: $CONTAINER_ID"
 
-            # 立即检查容器状态（老王备注：不要傻等，立即诊断）
-            echo "🔍 检查容器状态..."
-            sleep 3
+            echo ""
+            echo "🔍 第六步：检查容器状态..."
+
+            sleep 5
             CONTAINER_STATUS=$(docker inspect -f '{{.State.Status}}' $CONTAINER_NAME 2>/dev/null || echo "not_found")
             echo "容器状态: $CONTAINER_STATUS"
 
-            # 如果容器已退出，打印日志
             if [ "$CONTAINER_STATUS" = "exited" ]; then
                 echo "❌ 容器启动后立即退出！"
                 echo "=== 容器日志 ==="
-                docker logs $CONTAINER_NAME --tail 50
+                docker logs $CONTAINER_NAME --tail 100
                 exit 1
             fi
 
-            # 等待服务启动（减少等待时间，多次检查）
-            echo "⏳ 等待服务启动..."
-            for i in {1..12}; do
+            echo ""
+            echo "⏳ 第七步：等待服务就绪..."
+
+            READY=0
+            for i in {1..24}; do
                 sleep 5
                 if curl -f http://localhost:$PORT/api/health > /dev/null 2>&1; then
-                    echo "✅ 服务启动成功！"
+                    READY=1
+                    echo "✅ 服务已就绪！"
                     break
                 fi
-                # 每5秒检查一次容器状态
                 CONTAINER_STATUS=$(docker inspect -f '{{.State.Status}}' $CONTAINER_NAME 2>/dev/null || echo "not_found")
                 if [ "$CONTAINER_STATUS" = "exited" ]; then
                     echo "❌ 容器在启动过程中退出！"
                     echo "=== 容器日志 ==="
-                    docker logs $CONTAINER_NAME --tail 50
+                    docker logs $CONTAINER_NAME --tail 100
                     exit 1
                 fi
-                echo "等待中... ($i/12)"
+                echo "等待中... ($i/24, 已等待 $((i*5))秒)"
             done
 
-            # 健康检查
-            echo "🔍 健康检查..."
-            if curl -f http://localhost:$PORT/api/health > /dev/null 2>&1; then
-              echo "✅ 后端服务启动成功！"
-              echo "📍 API 地址: http://$(hostname -I | awk '{print $1}'):$PORT"
-              echo "📊 API 文档: http://$(hostname -I | awk '{print $1}'):$PORT/docs"
-            else
-              echo "❌ 后端服务启动失败！"
-              echo "=== 容器状态 ==="
-              docker ps -a | grep $CONTAINER_NAME
-              echo "=== 容器日志 ==="
-              docker logs $CONTAINER_NAME --tail 100
-              exit 1
+            if [ $READY -ne 1 ]; then
+                echo "❌ 服务启动超时"
+                echo "=== 容器状态 ==="
+                docker ps -a | grep $CONTAINER_NAME
+                echo "=== 容器日志 ==="
+                docker logs $CONTAINER_NAME --tail 100
+                exit 1
             fi
 
-            # 清理旧镜像
-            echo "🧹 清理未使用的镜像..."
-            docker image prune -f
+            echo ""
+            echo "🎉 部署成功！"
+            echo "📍 API 地址: http://$(hostname -I | awk '{print $1}'):$PORT"
+            echo "📊 API 文档: http://$(hostname -I | awk '{print $1}'):$PORT/docs"
+            echo "🔍 健康检查: http://$(hostname -I | awk '{print $1}'):$PORT/api/health"
 
-            echo "🎉 部署完成！"
-
-      # 可选：发送部署通知
       - name: Deployment Summary
+        if: success()
         run: |
           echo "### 🎉 后端部署成功！" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **镜像**: ${{ env.REGISTRY }}/${{ env.REPO_OWNER_LOWER }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo "- **镜像**: ghcr.io/architecture-matrix/auto_geo_backend:latest" >> $GITHUB_STEP_SUMMARY
           echo "- **服务器**: ${{ secrets.SERVER_HOST }}" >> $GITHUB_STEP_SUMMARY
           echo "- **端口**: ${{ secrets.BACKEND_PORT || 8001 }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 下一步" >> $GITHUB_STEP_SUMMARY
-          echo "1. 前端更新 API 地址为服务器IP" >> $GITHUB_STEP_SUMMARY
-          echo "2. 打包 Electron 应用" >> $GITHUB_STEP_SUMMARY
+          echo "- **API**: http://${{ secrets.SERVER_HOST }}:${{ secrets.BACKEND_PORT || 8001 }}" >> $GITHUB_STEP_SUMMARY
