@@ -7,9 +7,8 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [master, dev]
-    paths:
-      - 'backend/**'
+    branches: [master, dev, main]
+    # 移除paths限制，确保所有PR都运行完整检查
 
 # 添加权限配置，让Security Scan能正常上传结果
 permissions:
