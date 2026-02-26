@@ -267,8 +267,10 @@ jobs:
           if-no-files-found: error
         if: always()
 
-      - name: Build summary
+      # 老王备注（2026-02-26）：Windows构建摘要（使用纯bash语法）
+      - name: Build summary (Windows)
         if: success() && runner.os == 'Windows'
+        shell: bash
         run: |
           echo "### 🎉 ${{ matrix.platform }} 构建成功！" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -277,9 +279,27 @@ jobs:
           echo "- **格式**: ${{ matrix.target }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### 构建产物：" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            Get-ChildItem -Path dist -Filter "*.exe" | ForEach-Object {
-              echo "- $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)" >> $GITHUB_STEP_SUMMARY
-            }
+          if [ -d "dist" ]; then
+            for file in dist/*.exe; do
+              if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                size=$(ls -lh "$file" | awk '{print $5}')
+                echo "- $filename ($size)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
           fi
-        shell: bash
+
+      # 老王备注（2026-02-26）：Linux/macOS构建摘要
+      - name: Build summary (Linux/macOS)
+        if: success() && runner.os != 'Windows'
+        run: |
+          echo "### 🎉 ${{ matrix.platform }} 构建成功！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **平台**: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **架构**: ${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **格式**: ${{ matrix.target }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 构建产物：" >> $GITHUB_STEP_SUMMARY
+          if [ -d "dist" ]; then
+            ls -lh dist/ | tail -n +2 | awk '{print "- "$9" ("$5")"}' >> $GITHUB_STEP_SUMMARY
+          fi
