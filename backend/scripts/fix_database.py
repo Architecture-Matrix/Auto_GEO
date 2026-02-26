@@ -81,6 +81,9 @@ def check_and_fix_database():
             ("ragflow_dataset_id", "VARCHAR(100)"),
             ("ragflow_synced", "BOOLEAN DEFAULT 0"),
             ("ragflow_synced_at", "DATETIME"),
+            ("sync_status", "VARCHAR(20) DEFAULT 'pending'"),
+            ("last_sync_at", "DATETIME"),
+            ("knowledge_count", "INTEGER DEFAULT 0"),
         ]
 
         for col_name, col_def in cat_columns_to_check:
@@ -104,6 +107,9 @@ def check_and_fix_database():
             ("ragflow_synced", "BOOLEAN DEFAULT 0"),
             ("ragflow_synced_at", "DATETIME"),
             ("ragflow_parsed", "BOOLEAN DEFAULT 0"),
+            ("ragflow_dataset_id", "VARCHAR(100)"),
+            ("sync_status", "VARCHAR(20) DEFAULT 'pending'"),
+            ("last_sync_at", "DATETIME"),
         ]
 
         for col_name, col_def in know_columns_to_check:

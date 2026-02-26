@@ -491,9 +491,9 @@ DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1")
 # RAGFlow 服务地址
 RAGFLOW_BASE_URL = os.getenv("RAGFLOW_BASE_URL", "https://ragflow.xinzhixietong.com")
 # RAGFlow API Key
-RAGFLOW_API_KEY = os.getenv("RAGFLOW_API_KEY", "ragflow-54x_gvOP6KPjRqAROwfD1_uE7DnEcWn6zoczEeIQYIY")
+RAGFLOW_API_KEY = os.getenv("RAGFLOW_API_KEY", "")
 # RAGFlow 知识库ID（用于存储采集的文章）
-RAGFLOW_DATASET_ID = os.getenv("RAGFLOW_DATASET_ID", "dff2935cfc2011f0b36f0e3309b7ec55")
+RAGFLOW_DATASET_ID = os.getenv("RAGFLOW_DATASET_ID", "")
 # RAGFlow 知识库名称（自动创建时使用）
 RAGFLOW_DATASET_NAME = os.getenv("RAGFLOW_DATASET_NAME", "reference_articles_kb")
 # 去重相似度阈值
