@@ -59,7 +59,7 @@ class RAGFlowClient:
         payload = {
             "name": name,
             "chunk_method": "naive",
-            "parser_config": {"chunk_token_num": 8192, "delimiter": "\\n\\n", "layout_recognize": True},
+            "parser_config": {"chunk_token_num": 2048, "delimiter": "\\n\\n", "layout_recognize": "True"},
         }
         if description:
             payload["description"] = description
@@ -94,6 +94,75 @@ class RAGFlowClient:
             return resp.json()
         except Exception as e:
             logger.error(f"列出知识库失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def get_dataset(self, dataset_id: str) -> Dict:
+        """
+        获取知识库详情
+
+        Args:
+            dataset_id: 知识库 ID
+
+        Returns:
+            知识库详情
+        """
+        try:
+            resp = self.session.get(f"{self.base_url}/api/v1/datasets/{dataset_id}", timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.error(f"获取知识库详情失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def update_dataset(self, dataset_id: str, name: str = None, description: str = None) -> Dict:
+        """
+        更新知识库
+
+        Args:
+            dataset_id: 知识库 ID
+            name: 知识库名称
+            description: 描述
+
+        Returns:
+            API 响应
+        """
+        try:
+            payload = {}
+            if name:
+                payload["name"] = name
+            if description:
+                payload["description"] = description
+
+            if not payload:
+                return {"code": 0, "message": "无需更新"}
+
+            resp = self.session.put(f"{self.base_url}/api/v1/datasets/{dataset_id}", json=payload, timeout=self.timeout)
+            resp.raise_for_status()
+            result = resp.json()
+            logger.info(f"更新知识库成功: {dataset_id}")
+            return result
+        except Exception as e:
+            logger.error(f"更新知识库失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def delete_dataset(self, dataset_id: str) -> Dict:
+        """
+        删除知识库
+
+        Args:
+            dataset_id: 知识库 ID
+
+        Returns:
+            API 响应
+        """
+        try:
+            resp = self.session.delete(f"{self.base_url}/api/v1/datasets/{dataset_id}", timeout=self.timeout)
+            resp.raise_for_status()
+            result = resp.json()
+            logger.info(f"删除知识库成功: {dataset_id}")
+            return result
+        except Exception as e:
+            logger.error(f"删除知识库失败: {e}")
             return {"code": -1, "message": str(e)}
 
     def get_or_create_dataset(self, name: str) -> Optional[str]:
@@ -189,6 +258,121 @@ class RAGFlowClient:
             return result
         except Exception as e:
             logger.error(f"文档解析失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def get_document(self, dataset_id: str, document_id: str) -> Dict:
+        """
+        获取文档详情
+
+        Args:
+            dataset_id: 知识库 ID
+            document_id: 文档 ID
+
+        Returns:
+            文档详情
+        """
+        try:
+            resp = self.session.get(
+                f"{self.base_url}/api/v1/datasets/{dataset_id}/documents/{document_id}",
+                timeout=self.timeout
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.error(f"获取文档详情失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def get_document_content(self, dataset_id: str, document_id: str) -> Dict:
+        """
+        获取文档内容
+
+        Args:
+            dataset_id: 知识库 ID
+            document_id: 文档 ID
+
+        Returns:
+            文档内容
+        """
+        try:
+            # RAGFlow可能通过不同的API获取文档内容
+            # 这里尝试通过检索API获取
+            result = self.retrieve(
+                question="获取完整文档内容",
+                dataset_ids=[dataset_id],
+                top_k=1,
+                similarity_threshold=0.0
+            )
+            
+            if result.get('code') == 0:
+                chunks = result.get('data', {}).get('chunks', [])
+                for chunk in chunks:
+                    if chunk.get('document_id') == document_id:
+                        return {
+                            'code': 0,
+                            'data': {
+                                'content': chunk.get('content', ''),
+                                'title': chunk.get('document_name', '')
+                            }
+                        }
+            
+            return {'code': -1, 'message': '文档内容获取失败'}
+        except Exception as e:
+            logger.error(f"获取文档内容失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def update_document(self, dataset_id: str, document_id: str, title: str = None, content: str = None) -> Dict:
+        """
+        更新文档（通过删除旧文档并创建新文档实现）
+
+        Args:
+            dataset_id: 知识库 ID
+            document_id: 文档 ID
+            title: 新标题
+            content: 新内容
+
+        Returns:
+            API 响应
+        """
+        try:
+            # 先删除旧文档
+            delete_result = self.delete_document(dataset_id, document_id)
+            if delete_result.get('code') != 0:
+                logger.warning(f"删除旧文档失败，可能文档不存在: {document_id}")
+            
+            # 创建新文档
+            if title and content:
+                new_result = self.upload_document_content(dataset_id, title, content)
+                if new_result.get('code') == 0:
+                    logger.info(f"更新文档成功: {title}")
+                    return new_result
+            
+            return {"code": -1, "message": "更新文档失败"}
+        except Exception as e:
+            logger.error(f"更新文档失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def delete_document(self, dataset_id: str, document_id: str) -> Dict:
+        """
+        删除文档
+
+        Args:
+            dataset_id: 知识库 ID
+            document_id: 文档 ID
+
+        Returns:
+            API 响应
+        """
+        try:
+            resp = self.session.delete(
+                f"{self.base_url}/api/v1/datasets/{dataset_id}/documents/{document_id}",
+                timeout=self.timeout
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            logger.info(f"删除文档成功: {document_id}")
+            return result
+        except Exception as e:
+            logger.error(f"删除文档失败: {e}")
             return {"code": -1, "message": str(e)}
 
     def list_documents(self, dataset_id: str, **kwargs) -> Dict:
@@ -364,5 +548,6 @@ def get_ragflow_client() -> RAGFlowClient:
     """获取 RAGFlow 客户端单例"""
     global _ragflow_client
     if _ragflow_client is None:
-        _ragflow_client = RAGFlowClient()
+        from backend.config import RAGFLOW_BASE_URL, RAGFLOW_API_KEY
+        _ragflow_client = RAGFlowClient(base_url=RAGFLOW_BASE_URL, api_key=RAGFLOW_API_KEY)
     return _ragflow_client
