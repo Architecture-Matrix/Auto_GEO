@@ -392,22 +392,31 @@ git push
 
 GitHub提供三种合并方式：
 
-| 方式 | 说明 | 何时使用 |
-|-----|------|---------|
-| **Merge commit** | 创建合并提交 | 大多数情况，保留完整历史 |
-| **Squash merge** | 压缩为单个提交 | 小的修复，不想保留所有commits |
-| **Rebase merge** | 变基合并 | 特殊情况，一般不用 |
+| 方式 | 说明 | 优点 | 缺点 |
+|-----|------|------|------|
+| **Squash merge** | 压缩为单个提交 | ✅ 历史整洁<br>✅ 每个功能一个commit | - 丢失分支历史 |
+| **Merge commit** | 创建合并提交 | ✅ 保留完整历史 | ❌ 历史杂乱 |
+| **Rebase merge** | 变基合并 | ✅ 线性历史 | ❌ 容易搞乱历史 |
 
-**建议**:
-- 功能分支：用 **Merge commit**
-- Bug修复：用 **Squash merge**
-- 不要用 **Rebase**（容易搞乱历史）
+**重要：团队统一使用 Squash merge**
+
+为了保持Git历史整洁，**所有PR合并时统一使用 Squash merge**：
+
+- ✅ 每个功能在main分支只有一个commit
+- ✅ 历史清晰，容易回溯
+- ✅ 避免无意义的"Merge branch xxx"提交
+
+**Commit信息规范**：
+合并时会自动生成commit信息，请确保：
+- 标题遵循 Conventional Commits（`feat:` / `fix:` 等）
+- 描述清晰说明变更内容
 
 ### 合并操作
 
-1. 点击 **"Merge pull request"**
-2. 选择合并方式（默认是Merge commit）
-3. 点击 **"Confirm merge"**
+1. 点击 **"Merge pull request"** 下拉箭头
+2. 选择 **"Squash and merge"**
+3. 确认commit信息正确
+4. 点击 **"Confirm squash and merge"**
 
 ### 合并后
 
@@ -604,16 +613,18 @@ git checkout -b feat/another-feature
 1. **分支命名要清晰** - 一眼看出是干什么的
 2. **提交信息要规范** - 遵循 Conventional Commits
 3. **PR描述要完整** - 关联Issue、说明变更、提供测试方法
-4. **CI不过不合并** - 红灯就是红灯，别tm强行合并
+4. **CI不过不合并** - 红灯就是红灯，所有检查必须通过
 5. **评审意见要重视** - 别人花时间review，认真对待
 6. **冲突要及时解决** - 别拖着，越拖越难搞
-7. **合并后要清理** - 别留一堆无用分支
+7. **合并用Squash** - 保持Git历史整洁，每个功能一个commit
+8. **合并后要清理** - 别留一堆无用分支
 
 **团队协作的核心**:
 - ✅ **代码质量** - CI自动检查，人肉Review辅助
 - ✅ **沟通透明** - PR描述清楚，及时响应评论
 - ✅ **尊重他人** - 评审意见认真对待，别当成找茬
 - ✅ **持续改进** - 每次PR都是学习机会
+- ✅ **历史整洁** - 统一使用Squash merge，保持main分支干净
 
 ---
 

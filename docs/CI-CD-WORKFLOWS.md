@@ -105,16 +105,27 @@ on:
       - 'backend/**'                      # backend目录下的任何文件
       - '.github/workflows/backend-ci.yml' # workflow文件本身
   pull_request:
-    branches: [master, dev]
-    paths:
-      - 'backend/**'
+    branches: [master, dev, main]  # ⚠️ 2026-02-26修复：添加main分支
+    # 移除paths限制，确保所有PR都运行完整检查
 ```
 
 **重要说明**：
-- ✅ 修改`backend/`目录下的任何文件会触发
-- ✅ 修改`.github/workflows/backend-ci.yml`会触发
-- ❌ 只修改文档或配置文件**不会触发**
-- ❌ 只修改frontend代码**不会触发**
+- ✅ 修改`backend/`目录下的任何文件会触发（push时）
+- ✅ 修改`.github/workflows/backend-ci.yml`会触发（push时）
+- ✅ **所有PR到main/master/dev都会运行完整检查**（2026-02-26修复）
+- ⚠️ 只修改文档或配置文件也会触发backend检查（确保合并前检查完整）
+
+**备注（2026-02-26修复：CI检查一直Expected的问题）**：
+
+- **问题**: PR到main分支时，Lint & Type Check 和 Security Scan 一直显示 "Expected" 状态，无法合并
+- **原因**:
+  1. `pull_request` 触发条件只包含 `[master, dev]`，缺少 `main` 分支
+  2. `pull_request` 有 `paths` 限制，只修改前端时不触发backend检查
+- **修复**:
+  1. 添加 `main` 到 `pull_request.branches`
+  2. 移除 `pull_request` 的 `paths` 限制
+- **影响**: 现在所有PR到main都会运行完整的backend检查（Lint, Unit Tests, Security Scan）
+- **commit**: 0b3eaf9, 0be1c8a
 
 ### 检查内容总览
 
@@ -278,16 +289,15 @@ on:
       - 'frontend/**'                         # frontend目录下的任何文件
       - '.github/workflows/frontend-ci.yml'   # workflow文件本身
   pull_request:
-    branches: [master, dev]
-    paths:
-      - 'frontend/**'
+    branches: [master, dev, main]  # ⚠️ 2026-02-26修复：添加main分支
+    # 移除paths限制，确保所有PR都运行完整检查
 ```
 
 **重要说明**：
-- ✅ 修改`frontend/`目录下的任何文件会触发
-- ✅ 修改`.github/workflows/frontend-ci.yml`会触发
-- ❌ 只修改文档或配置文件**不会触发**
-- ❌ 只修改backend代码**不会触发**
+- ✅ 修改`frontend/`目录下的任何文件会触发（push时）
+- ✅ 修改`.github/workflows/frontend-ci.yml`会触发（push时）
+- ✅ **所有PR到main/master/dev都会运行完整检查**（2026-02-26修复）
+- ⚠️ 只修改文档或配置文件也会触发frontend检查（确保合并前检查完整）
 
 ### Jobs
 
