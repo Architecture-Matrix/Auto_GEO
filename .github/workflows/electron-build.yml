@@ -227,6 +227,17 @@ jobs:
           ls -lah dist/ 2>/dev/null || echo "dist目录不存在"
 
       # 老王备注：只在tag推送或手动触发create_release=true时上传到Release
+      # 老王备注（2026-02-26）：先复制文件到根目录dist/，再上传（working-directory对uses步骤不生效）
+      - name: Copy files for release
+        if: |
+          startsWith(github.ref, 'refs/tags/') ||
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == 'true')
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path ../dist -Force | Out-Null
+          Copy-Item dist/*.* ../dist/ -Force
+          Write-Host "✅ 复制文件到根目录dist/完成"
+
       - name: Upload artifacts to release
         if: |
           startsWith(github.ref, 'refs/tags/') ||
