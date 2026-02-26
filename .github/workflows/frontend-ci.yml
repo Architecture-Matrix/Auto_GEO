@@ -7,9 +7,8 @@ on:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
-    branches: [master, dev]
-    paths:
-      - 'frontend/**'
+    branches: [master, dev, main]
+    # 移除paths限制，确保所有PR都运行完整检查
 
 env:
   NODE_VERSION: '20'
