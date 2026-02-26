@@ -48,8 +48,7 @@ def migrate_categories(db: Session, ragflow_client: RAGFlowClient) -> dict:
 
             # 创建RAGFlow知识库
             result = ragflow_client.create_dataset(
-                name=cat.name,
-                description=cat.description or f"{cat.name} - AutoGeo知识库"
+                name=cat.name, description=cat.description or f"{cat.name} - AutoGeo知识库"
             )
 
             if result.get("code") == 0:
@@ -102,9 +101,7 @@ def migrate_knowledge(db: Session, ragflow_client: RAGFlowClient) -> dict:
                 continue
 
             # 获取分类信息
-            category = db.query(KnowledgeCategory).filter(
-                KnowledgeCategory.id == know.category_id
-            ).first()
+            category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == know.category_id).first()
 
             if not category or not category.ragflow_dataset_id:
                 logger.warning(f"知识 {know.title} 的分类未同步，跳过")
@@ -113,9 +110,7 @@ def migrate_knowledge(db: Session, ragflow_client: RAGFlowClient) -> dict:
 
             # 上传文档到RAGFlow
             result = ragflow_client.upload_document_content(
-                dataset_id=category.ragflow_dataset_id,
-                title=know.title,
-                content=know.content
+                dataset_id=category.ragflow_dataset_id, title=know.title, content=know.content
             )
 
             if result.get("code") == 0:
@@ -127,10 +122,7 @@ def migrate_knowledge(db: Session, ragflow_client: RAGFlowClient) -> dict:
                     know.ragflow_synced_at = datetime.now()
 
                     # 触发文档解析
-                    ragflow_client.parse_documents(
-                        dataset_id=category.ragflow_dataset_id,
-                        document_ids=[doc_id]
-                    )
+                    ragflow_client.parse_documents(dataset_id=category.ragflow_dataset_id, document_ids=[doc_id])
 
                     db.commit()
 
@@ -165,10 +157,7 @@ def main():
 
     # 初始化RAGFlow客户端
     logger.info(f"初始化RAGFlow客户端: {RAGFLOW_BASE_URL}")
-    ragflow_client = RAGFlowClient(
-        base_url=RAGFLOW_BASE_URL,
-        api_key=RAGFLOW_API_KEY
-    )
+    ragflow_client = RAGFlowClient(base_url=RAGFLOW_BASE_URL, api_key=RAGFLOW_API_KEY)
 
     try:
         # 检查RAGFlow连接

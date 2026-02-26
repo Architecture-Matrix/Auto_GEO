@@ -15,7 +15,18 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 # 导入配置和数据库
-from backend.config import APP_NAME, APP_VERSION, DEBUG, HOST, PORT, RELOAD, CORS_ORIGINS, PLATFORMS, RAGFLOW_API_KEY, RAGFLOW_DATASET_ID
+from backend.config import (
+    APP_NAME,
+    APP_VERSION,
+    DEBUG,
+    HOST,
+    PORT,
+    RELOAD,
+    CORS_ORIGINS,
+    PLATFORMS,
+    RAGFLOW_API_KEY,
+    RAGFLOW_DATASET_ID,
+)
 from backend.database import init_db, SessionLocal
 from backend.scripts.fix_database import check_and_fix_database
 

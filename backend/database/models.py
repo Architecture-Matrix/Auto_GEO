@@ -365,11 +365,7 @@ class KnowledgeCategory(Base):
 
     # RAGFlow唯一标识（主数据源）
     ragflow_dataset_id = Column(
-        String(100), 
-        unique=True, 
-        nullable=True, 
-        index=True, 
-        comment="RAGFlow知识库ID（唯一标识，主数据源）"
+        String(100), unique=True, nullable=True, index=True, comment="RAGFlow知识库ID（唯一标识，主数据源）"
     )
 
     # 元数据字段（从RAGFlow同步的缓存）
@@ -383,7 +379,9 @@ class KnowledgeCategory(Base):
     status = Column(Integer, default=1, comment="状态：1=活跃 0=停用")
 
     # 同步状态管理
-    sync_status = Column(String(20), default="pending", comment="同步状态：pending=待同步 synced=已同步 syncing=同步中 error=同步失败")
+    sync_status = Column(
+        String(20), default="pending", comment="同步状态：pending=待同步 synced=已同步 syncing=同步中 error=同步失败"
+    )
     ragflow_synced = Column(Boolean, default=False, comment="是否已同步到RAGFlow（已废弃，使用sync_status）")
     ragflow_synced_at = Column(DateTime, nullable=True, comment="同步时间")
     last_sync_at = Column(DateTime, nullable=True, comment="最后同步时间")
@@ -417,11 +415,7 @@ class Knowledge(Base):
 
     # RAGFlow唯一标识（主数据源）
     ragflow_document_id = Column(
-        String(100), 
-        unique=True, 
-        nullable=True, 
-        index=True, 
-        comment="RAGFlow文档ID（唯一标识，主数据源）"
+        String(100), unique=True, nullable=True, index=True, comment="RAGFlow文档ID（唯一标识，主数据源）"
     )
 
     # 关联到RAGFlow知识库
@@ -429,11 +423,11 @@ class Knowledge(Base):
 
     # 向后兼容的外键关系（用于SQLAlchemy关系映射，实际主要使用ragflow_dataset_id）
     category_id = Column(
-        Integer, 
-        ForeignKey("knowledge_categories.id", ondelete="CASCADE"), 
+        Integer,
+        ForeignKey("knowledge_categories.id", ondelete="CASCADE"),
         nullable=False,  # 与数据库表结构保持一致
-        index=True, 
-        comment="分类ID（向后兼容，实际主要使用ragflow_dataset_id）"
+        index=True,
+        comment="分类ID（向后兼容，实际主要使用ragflow_dataset_id）",
     )
 
     # 元数据字段（从RAGFlow同步的缓存）
@@ -449,7 +443,9 @@ class Knowledge(Base):
     status = Column(Integer, default=1, comment="状态：1=启用 0=停用")
 
     # 同步状态管理
-    sync_status = Column(String(20), default="pending", comment="同步状态：pending=待同步 synced=已同步 syncing=同步中 error=同步失败")
+    sync_status = Column(
+        String(20), default="pending", comment="同步状态：pending=待同步 synced=已同步 syncing=同步中 error=同步失败"
+    )
     ragflow_synced = Column(Boolean, default=False, comment="是否已同步到RAGFlow（已废弃，使用sync_status）")
     ragflow_synced_at = Column(DateTime, nullable=True, comment="同步时间")
     ragflow_parsed = Column(Boolean, default=False, comment="文档是否已解析")

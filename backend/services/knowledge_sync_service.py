@@ -16,15 +16,16 @@ from backend.config import RAGFLOW_BASE_URL, RAGFLOW_API_KEY
 
 class SyncStrategy:
     """同步策略"""
+
     LOCAL_TO_RAGFLOW = "local_to_ragflow"  # 本地 → RAGFlow（已废弃）
     RAGFLOW_TO_LOCAL = "ragflow_to_local"  # RAGFlow → 本地（当前使用）
-    BIDIRECTIONAL = "bidirectional"        # 双向同步（不支持）
+    BIDIRECTIONAL = "bidirectional"  # 双向同步（不支持）
 
 
 class KnowledgeSyncService:
     """
     知识库同步服务 - RAGFlow为主存储
-    
+
     核心逻辑：
     1. RAGFlow是唯一真实数据源
     2. SQLite只作为元数据缓存
@@ -39,10 +40,7 @@ class KnowledgeSyncService:
             db: 数据库会话
         """
         self.db = db
-        self.ragflow = RAGFlowClient(
-            base_url=RAGFLOW_BASE_URL,
-            api_key=RAGFLOW_API_KEY
-        )
+        self.ragflow = RAGFlowClient(base_url=RAGFLOW_BASE_URL, api_key=RAGFLOW_API_KEY)
 
     def sync_from_ragflow(self) -> Tuple[int, int]:
         """
@@ -52,13 +50,13 @@ class KnowledgeSyncService:
             (成功数量, 失败数量)
         """
         logger.info("开始从RAGFlow同步所有数据...")
-        
+
         # 1. 同步所有知识库
         cat_success, cat_fail = self.sync_all_categories_from_ragflow()
-        
+
         # 2. 同步所有文档
         know_success, know_fail = self.sync_all_knowledge_from_ragflow()
-        
+
         logger.info(f"同步完成: 分类({cat_success}成功/{cat_fail}失败), 知识({know_success}成功/{know_fail}失败)")
         return (cat_success + know_success), (cat_fail + know_fail)
 
@@ -71,20 +69,20 @@ class KnowledgeSyncService:
         """
         try:
             result = self.ragflow.list_datasets()
-            if result.get('code') != 0:
+            if result.get("code") != 0:
                 logger.error(f"获取RAGFlow知识库失败: {result.get('message')}")
                 return 0, 0
-            
-            datasets = result.get('data', [])
+
+            datasets = result.get("data", [])
             success_count = 0
             fail_count = 0
-            
+
             for dataset in datasets:
                 if self.sync_category_from_ragflow(dataset):
                     success_count += 1
                 else:
                     fail_count += 1
-            
+
             return success_count, fail_count
         except Exception as e:
             logger.error(f"同步分类失败: {e}")
@@ -101,32 +99,32 @@ class KnowledgeSyncService:
             是否同步成功
         """
         try:
-            dataset_id = dataset.get('id')
+            dataset_id = dataset.get("id")
             if not dataset_id:
                 return False
-            
+
             # 检查是否存在
-            category = self.db.query(KnowledgeCategory).filter(
-                KnowledgeCategory.ragflow_dataset_id == dataset_id
-            ).first()
-            
+            category = (
+                self.db.query(KnowledgeCategory).filter(KnowledgeCategory.ragflow_dataset_id == dataset_id).first()
+            )
+
             if category:
                 # 更新缓存
-                category.name = dataset.get('name')
-                category.description = dataset.get('description', '')
-                category.sync_status = 'synced'
+                category.name = dataset.get("name")
+                category.description = dataset.get("description", "")
+                category.sync_status = "synced"
                 category.last_sync_at = datetime.now()
             else:
                 # 创建缓存
                 category = KnowledgeCategory(
                     ragflow_dataset_id=dataset_id,
-                    name=dataset.get('name'),
-                    description=dataset.get('description', ''),
-                    sync_status='synced',
-                    last_sync_at=datetime.now()
+                    name=dataset.get("name"),
+                    description=dataset.get("description", ""),
+                    sync_status="synced",
+                    last_sync_at=datetime.now(),
                 )
                 self.db.add(category)
-            
+
             self.db.commit()
             return True
         except Exception as e:
@@ -143,19 +141,20 @@ class KnowledgeSyncService:
         """
         success_count = 0
         fail_count = 0
-        
+
         # 获取所有有RAGFlow ID的分类
-        categories = self.db.query(KnowledgeCategory).filter(
-            KnowledgeCategory.ragflow_dataset_id.isnot(None),
-            KnowledgeCategory.status == 1
-        ).all()
-        
+        categories = (
+            self.db.query(KnowledgeCategory)
+            .filter(KnowledgeCategory.ragflow_dataset_id.isnot(None), KnowledgeCategory.status == 1)
+            .all()
+        )
+
         for category in categories:
             if self.sync_knowledge_from_ragflow(category.ragflow_dataset_id):
                 success_count += 1
             else:
                 fail_count += 1
-        
+
         return success_count, fail_count
 
     def sync_knowledge_from_ragflow(self, dataset_id: str) -> bool:
@@ -171,52 +170,45 @@ class KnowledgeSyncService:
         try:
             # 获取RAGFlow中的文档
             result = self.ragflow.list_documents(dataset_id)
-            if result.get('code') != 0:
+            if result.get("code") != 0:
                 logger.error(f"获取RAGFlow文档失败: {result.get('message')}")
                 return False
-            
-            docs = result.get('data', [])
-            
+
+            docs = result.get("data", [])
+
             # 根据 dataset_id 反查对应 KnowledgeCategory
-            category = self.db.query(KnowledgeCategory).filter(
-                KnowledgeCategory.ragflow_dataset_id == dataset_id
-            ).first()
-            
+            category = (
+                self.db.query(KnowledgeCategory).filter(KnowledgeCategory.ragflow_dataset_id == dataset_id).first()
+            )
+
             if not category:
                 logger.warning(f"未找到 dataset_id {dataset_id} 对应的分类")
                 return False
-            
+
             for doc in docs:
-                doc_id = doc.get('id')
+                doc_id = doc.get("id")
                 if not doc_id:
                     continue
-                
+
                 # 检查是否存在
-                knowledge = self.db.query(Knowledge).filter(
-                    Knowledge.ragflow_document_id == doc_id
-                ).first()
-                
+                knowledge = self.db.query(Knowledge).filter(Knowledge.ragflow_document_id == doc_id).first()
+
                 if not knowledge:
                     # 创建缓存，确保必填字段有值
-                    content = (
-                        doc.get('summary')
-                        or doc.get('content')
-                        or doc.get('name', '')
-                        or 'RAGFlow 文档占位内容'
-                    )
-                    
+                    content = doc.get("summary") or doc.get("content") or doc.get("name", "") or "RAGFlow 文档占位内容"
+
                     knowledge = Knowledge(
                         ragflow_document_id=doc_id,
                         ragflow_dataset_id=dataset_id,
                         category_id=category.id,  # 添加必填字段
-                        title=doc.get('name', ''),
+                        title=doc.get("name", ""),
                         content=content,  # 添加必填字段
-                        type='other',
-                        sync_status='synced',
-                        last_sync_at=datetime.now()
+                        type="other",
+                        sync_status="synced",
+                        last_sync_at=datetime.now(),
                     )
                     self.db.add(knowledge)
-            
+
             self.db.commit()
             return True
         except Exception as e:
@@ -258,11 +250,11 @@ class KnowledgeSyncService:
 
             # 从RAGFlow删除知识库
             result = self.ragflow.delete_dataset(category.ragflow_dataset_id)
-            
-            if result.get('code') == 0:
+
+            if result.get("code") == 0:
                 # 清空本地同步状态
                 category.ragflow_dataset_id = None
-                category.sync_status = 'deleted'
+                category.sync_status = "deleted"
                 self.db.commit()
                 logger.info(f"删除RAGFlow知识库成功: {category.name}")
                 return True
@@ -290,15 +282,12 @@ class KnowledgeSyncService:
                 return True  # 未同步过，无需删除
 
             # 从RAGFlow删除文档
-            result = self.ragflow.delete_document(
-                knowledge.ragflow_dataset_id,
-                knowledge.ragflow_document_id
-            )
-            
-            if result.get('code') == 0:
+            result = self.ragflow.delete_document(knowledge.ragflow_dataset_id, knowledge.ragflow_document_id)
+
+            if result.get("code") == 0:
                 # 清空本地同步状态
                 knowledge.ragflow_document_id = None
-                knowledge.sync_status = 'deleted'
+                knowledge.sync_status = "deleted"
                 self.db.commit()
                 logger.info(f"删除RAGFlow文档成功: {knowledge.title}")
                 return True
@@ -321,24 +310,27 @@ class KnowledgeSyncService:
         Returns:
             同步状态信息
         """
-        category = self.db.query(KnowledgeCategory).filter(
-            KnowledgeCategory.id == category_id
-        ).first()
+        category = self.db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
 
         if not category:
             return {"error": "分类不存在"}
 
         # 统计知识条目同步状态
-        total_knowledges = self.db.query(Knowledge).filter(
-            Knowledge.ragflow_dataset_id == category.ragflow_dataset_id,
-            Knowledge.status == 1
-        ).count()
+        total_knowledges = (
+            self.db.query(Knowledge)
+            .filter(Knowledge.ragflow_dataset_id == category.ragflow_dataset_id, Knowledge.status == 1)
+            .count()
+        )
 
-        synced_knowledges = self.db.query(Knowledge).filter(
-            Knowledge.ragflow_dataset_id == category.ragflow_dataset_id,
-            Knowledge.status == 1,
-            Knowledge.sync_status == 'synced'
-        ).count()
+        synced_knowledges = (
+            self.db.query(Knowledge)
+            .filter(
+                Knowledge.ragflow_dataset_id == category.ragflow_dataset_id,
+                Knowledge.status == 1,
+                Knowledge.sync_status == "synced",
+            )
+            .count()
+        )
 
         return {
             "category_id": category_id,
@@ -348,15 +340,11 @@ class KnowledgeSyncService:
             "last_sync_at": category.last_sync_at.isoformat() if category.last_sync_at else None,
             "total_knowledges": total_knowledges,
             "synced_knowledges": synced_knowledges,
-            "sync_progress": f"{synced_knowledges}/{total_knowledges}"
+            "sync_progress": f"{synced_knowledges}/{total_knowledges}",
         }
 
     def search_in_ragflow(
-        self,
-        query: str,
-        dataset_ids: List[str],
-        top_k: int = 50,
-        similarity_threshold: float = 0.7
+        self, query: str, dataset_ids: List[str], top_k: int = 50, similarity_threshold: float = 0.7
     ) -> List[Dict]:
         """
         在RAGFlow中搜索
@@ -372,10 +360,7 @@ class KnowledgeSyncService:
         """
         try:
             result = self.ragflow.retrieve(
-                question=query,
-                dataset_ids=dataset_ids,
-                similarity_threshold=similarity_threshold,
-                top_k=top_k
+                question=query, dataset_ids=dataset_ids, similarity_threshold=similarity_threshold, top_k=top_k
             )
 
             if result.get("code") == 0:

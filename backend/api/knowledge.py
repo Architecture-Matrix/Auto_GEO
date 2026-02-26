@@ -103,41 +103,43 @@ async def get_categories(search: Optional[str] = None, db: Session = Depends(get
         分类列表
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         # 1. 从RAGFlow获取所有知识库
         ragflow_client = get_ragflow_client()
         ragflow_result = ragflow_client.list_datasets()
-        
-        if ragflow_result.get('code') == 0:
-            ragflow_datasets = ragflow_result.get('data', [])
-            
+
+        if ragflow_result.get("code") == 0:
+            ragflow_datasets = ragflow_result.get("data", [])
+
             # 2. 同步到SQLite缓存
             for dataset in ragflow_datasets:
-                ragflow_dataset_id = dataset.get('id')
-                
+                ragflow_dataset_id = dataset.get("id")
+
                 # 检查是否存在
-                category = db.query(KnowledgeCategory).filter(
-                    KnowledgeCategory.ragflow_dataset_id == ragflow_dataset_id
-                ).first()
-                
+                category = (
+                    db.query(KnowledgeCategory)
+                    .filter(KnowledgeCategory.ragflow_dataset_id == ragflow_dataset_id)
+                    .first()
+                )
+
                 if category:
                     # 更新缓存
-                    category.name = dataset.get('name')
-                    category.description = dataset.get('description', '')
-                    category.sync_status = 'synced'
+                    category.name = dataset.get("name")
+                    category.description = dataset.get("description", "")
+                    category.sync_status = "synced"
                     category.last_sync_at = datetime.now()
                 else:
                     # 创建缓存
                     category = KnowledgeCategory(
                         ragflow_dataset_id=ragflow_dataset_id,
-                        name=dataset.get('name'),
-                        description=dataset.get('description', ''),
-                        sync_status='synced',
-                        last_sync_at=datetime.now()
+                        name=dataset.get("name"),
+                        description=dataset.get("description", ""),
+                        sync_status="synced",
+                        last_sync_at=datetime.now(),
                     )
                     db.add(category)
-            
+
             db.commit()
     except Exception as e:
         logger.warning(f"从RAGFlow同步分类失败，使用SQLite缓存: {e}")
@@ -157,10 +159,11 @@ async def get_categories(search: Optional[str] = None, db: Session = Depends(get
     result = []
     for cat in categories:
         # 统计知识数量（从缓存获取）
-        knowledge_count = db.query(Knowledge).filter(
-            Knowledge.ragflow_dataset_id == cat.ragflow_dataset_id,
-            Knowledge.status == 1
-        ).count()
+        knowledge_count = (
+            db.query(Knowledge)
+            .filter(Knowledge.ragflow_dataset_id == cat.ragflow_dataset_id, Knowledge.status == 1)
+            .count()
+        )
 
         # 统计关联项目数（根据行业匹配）
         from backend.database.models import Project
@@ -203,42 +206,41 @@ async def create_category(data: KnowledgeCategoryCreate, db: Session = Depends(g
         创建结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         # 1. 在RAGFlow创建知识库
         ragflow_client = get_ragflow_client()
         ragflow_result = ragflow_client.create_dataset(
-            name=data.name,
-            description=data.description or f"{data.name} - AutoGeo知识库"
+            name=data.name, description=data.description or f"{data.name} - AutoGeo知识库"
         )
-        
+
         logger.info(f"RAGFlow返回结果: {ragflow_result}")
-        
-        if ragflow_result.get('code') != 0:
+
+        if ragflow_result.get("code") != 0:
             raise HTTPException(status_code=500, detail=f"RAGFlow创建失败: {ragflow_result.get('message')}")
-        
+
         # 尝试多种方式获取 dataset_id
         dataset_id = None
-        
+
         # 方式1: data.id (标准格式)
-        if not dataset_id and ragflow_result.get('data'):
-            dataset_id = ragflow_result.get('data', {}).get('id')
-        
+        if not dataset_id and ragflow_result.get("data"):
+            dataset_id = ragflow_result.get("data", {}).get("id")
+
         # 方式2: 直接在 result 中 (某些 API 格式)
         if not dataset_id:
-            dataset_id = ragflow_result.get('id')
-        
+            dataset_id = ragflow_result.get("id")
+
         # 方式3: data 是数组，取第一个
-        if not dataset_id and isinstance(ragflow_result.get('data'), list):
-            data_list = ragflow_result.get('data', [])
+        if not dataset_id and isinstance(ragflow_result.get("data"), list):
+            data_list = ragflow_result.get("data", [])
             if data_list:
-                dataset_id = data_list[0].get('id')
-        
+                dataset_id = data_list[0].get("id")
+
         logger.info(f"解析到的 dataset_id: {dataset_id}")
-        
+
         if not dataset_id:
             raise HTTPException(status_code=500, detail=f"RAGFlow返回的dataset_id为空，返回数据: {ragflow_result}")
-        
+
         # 2. 在SQLite创建缓存记录
         logger.info(f"准备创建数据库记录，dataset_id类型: {type(dataset_id)}, 值: {dataset_id}")
         category = KnowledgeCategory(
@@ -248,17 +250,19 @@ async def create_category(data: KnowledgeCategoryCreate, db: Session = Depends(g
             description=data.description,
             tags=data.tags,
             color=data.color,
-            sync_status='synced',
-            last_sync_at=datetime.now()
+            sync_status="synced",
+            last_sync_at=datetime.now(),
         )
         db.add(category)
         db.commit()
         db.refresh(category)
         logger.info(f"数据库记录创建成功，category.id: {category.id}")
-        
+
         logger.info(f"分类创建成功（RAGFlow ID: {dataset_id}）: {category.name}")
 
-        return ApiResponse(success=True, data={"id": category.id, "ragflow_dataset_id": dataset_id}, message="分类创建成功")
+        return ApiResponse(
+            success=True, data={"id": category.id, "ragflow_dataset_id": dataset_id}, message="分类创建成功"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -282,7 +286,7 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
         更新结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
 
@@ -293,12 +297,10 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
         if category.ragflow_dataset_id and (data.name is not None or data.description is not None):
             ragflow_client = get_ragflow_client()
             ragflow_result = ragflow_client.update_dataset(
-                dataset_id=category.ragflow_dataset_id,
-                name=data.name,
-                description=data.description
+                dataset_id=category.ragflow_dataset_id, name=data.name, description=data.description
             )
-            
-            if ragflow_result.get('code') != 0:
+
+            if ragflow_result.get("code") != 0:
                 logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {ragflow_result.get('message')}")
 
         # 2. 更新SQLite缓存
@@ -312,7 +314,7 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
             category.tags = data.tags
         if data.color is not None:
             category.color = data.color
-        
+
         category.last_sync_at = datetime.now()
         db.commit()
         return ApiResponse(success=True, message="分类更新成功")
@@ -338,7 +340,7 @@ async def delete_category(category_id: int, db: Session = Depends(get_db)):
         删除结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
 
@@ -350,8 +352,8 @@ async def delete_category(category_id: int, db: Session = Depends(get_db)):
             try:
                 ragflow_client = get_ragflow_client()
                 ragflow_result = ragflow_client.delete_dataset(category.ragflow_dataset_id)
-                
-                if ragflow_result.get('code') != 0:
+
+                if ragflow_result.get("code") != 0:
                     logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {ragflow_result.get('message')}")
             except Exception as e:
                 logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {e}")
@@ -387,79 +389,68 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
         知识条目列表
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     # 1. 获取分类的RAGFlow知识库ID
     category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="分类不存在")
-    
+
     if not category.ragflow_dataset_id:
         raise HTTPException(status_code=400, detail="分类未关联RAGFlow知识库")
-    
+
     # 初始化 ragflow_client，避免 UnboundLocalError
     ragflow_client = get_ragflow_client()
-    
+
     try:
         # 2. 从RAGFlow获取文档列表
         ragflow_result = ragflow_client.list_documents(category.ragflow_dataset_id)
-        
-        if ragflow_result.get('code') == 0:
-            ragflow_docs = ragflow_result.get('data', [])
-            
+
+        if ragflow_result.get("code") == 0:
+            ragflow_docs = ragflow_result.get("data", [])
+
             # 3. 同步到SQLite缓存
             for doc in ragflow_docs:
-                ragflow_doc_id = doc.get('id')
-                
+                ragflow_doc_id = doc.get("id")
+
                 # 检查是否存在
-                knowledge = db.query(Knowledge).filter(
-                    Knowledge.ragflow_document_id == ragflow_doc_id
-                ).first()
-                
+                knowledge = db.query(Knowledge).filter(Knowledge.ragflow_document_id == ragflow_doc_id).first()
+
                 if not knowledge:
                     # 创建缓存，确保必填字段有值
-                    content = (
-                        doc.get('summary')
-                        or doc.get('content')
-                        or doc.get('name', '')
-                        or 'RAGFlow 文档占位内容'
-                    )
-                    
+                    content = doc.get("summary") or doc.get("content") or doc.get("name", "") or "RAGFlow 文档占位内容"
+
                     knowledge = Knowledge(
                         ragflow_document_id=ragflow_doc_id,
                         ragflow_dataset_id=category.ragflow_dataset_id,
                         category_id=category_id,  # 添加必填字段
-                        title=doc.get('name', ''),
+                        title=doc.get("name", ""),
                         content=content,  # 添加必填字段
-                        type='other',
-                        sync_status='synced',
-                        last_sync_at=datetime.now()
+                        type="other",
+                        sync_status="synced",
+                        last_sync_at=datetime.now(),
                     )
                     db.add(knowledge)
-            
+
             db.commit()
     except Exception as e:
         logger.warning(f"从RAGFlow同步知识失败，使用SQLite缓存: {e}")
 
     # 4. 从SQLite返回（带搜索）
     query = db.query(Knowledge).filter(
-        Knowledge.ragflow_dataset_id == category.ragflow_dataset_id,
-        Knowledge.status == 1
+        Knowledge.ragflow_dataset_id == category.ragflow_dataset_id, Knowledge.status == 1
     )
 
     if search:
         # 从RAGFlow搜索
         try:
             search_result = ragflow_client.retrieve(
-                question=search,
-                dataset_ids=[category.ragflow_dataset_id],
-                top_k=100,
-                similarity_threshold=0.0
+                question=search, dataset_ids=[category.ragflow_dataset_id], top_k=100, similarity_threshold=0.0
             )
-            
-            if search_result.get('code') == 0:
-                chunks = search_result.get('data', {}).get('chunks', [])
-                doc_ids = set(chunk.get('document_id') for chunk in chunks)
-                
+
+            if search_result.get("code") == 0:
+                chunks = search_result.get("data", {}).get("chunks", [])
+                doc_ids = set(chunk.get("document_id") for chunk in chunks)
+
                 # 过滤出搜索到的文档
                 if doc_ids:
                     query = query.filter(Knowledge.ragflow_document_id.in_(doc_ids))
@@ -475,7 +466,7 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
     for item in items:
         # 优先使用本地缓存的 content
         content = item.content if item.content else item.title
-        
+
         result.append(
             KnowledgeResponse(
                 id=item.id,
@@ -505,35 +496,33 @@ async def create_knowledge(data: KnowledgeCreate, db: Session = Depends(get_db))
         创建结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         # 1. 获取分类的RAGFlow知识库ID
         category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == data.category_id).first()
         if not category:
             raise HTTPException(status_code=404, detail="分类不存在")
-        
+
         if not category.ragflow_dataset_id:
             raise HTTPException(status_code=400, detail="分类未关联RAGFlow知识库")
-        
+
         # 2. 在RAGFlow上传文档
         ragflow_client = get_ragflow_client()
         ragflow_result = ragflow_client.upload_document_content(
-            dataset_id=category.ragflow_dataset_id,
-            title=data.title,
-            content=data.content
+            dataset_id=category.ragflow_dataset_id, title=data.title, content=data.content
         )
-        
-        if ragflow_result.get('code') != 0:
+
+        if ragflow_result.get("code") != 0:
             raise HTTPException(status_code=500, detail=f"RAGFlow上传失败: {ragflow_result.get('message')}")
-        
-        docs = ragflow_result.get('data', [])
+
+        docs = ragflow_result.get("data", [])
         if not docs:
             raise HTTPException(status_code=500, detail="RAGFlow返回的文档列表为空")
-        
-        doc_id = docs[0].get('id')
+
+        doc_id = docs[0].get("id")
         if not doc_id:
             raise HTTPException(status_code=500, detail="RAGFlow返回的文档ID为空")
-        
+
         # 3. 在SQLite创建缓存记录
         knowledge = Knowledge(
             ragflow_document_id=doc_id,
@@ -542,16 +531,18 @@ async def create_knowledge(data: KnowledgeCreate, db: Session = Depends(get_db))
             title=data.title,
             content=data.content[:500] if data.content else data.title,  # 保存内容摘要到数据库
             type=data.type,
-            sync_status='synced',
-            last_sync_at=datetime.now()
+            sync_status="synced",
+            last_sync_at=datetime.now(),
         )
         db.add(knowledge)
         db.commit()
         db.refresh(knowledge)
-        
+
         logger.info(f"知识创建成功（RAGFlow ID: {doc_id}）: {knowledge.title}")
 
-        return ApiResponse(success=True, data={"id": knowledge.id, "ragflow_document_id": doc_id}, message="知识添加成功")
+        return ApiResponse(
+            success=True, data={"id": knowledge.id, "ragflow_document_id": doc_id}, message="知识添加成功"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -575,7 +566,7 @@ async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session
         更新结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
 
@@ -589,15 +580,15 @@ async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session
                     ragflow_client = get_ragflow_client()
                     title = data.title if data.title is not None else knowledge.title
                     content = data.content if data.content is not None else knowledge.content
-                    
+
                     ragflow_result = ragflow_client.update_document(
                         dataset_id=knowledge.ragflow_dataset_id,
                         document_id=knowledge.ragflow_document_id,
                         title=title,
-                        content=content
+                        content=content,
                     )
-                    
-                    if ragflow_result.get('code') != 0:
+
+                    if ragflow_result.get("code") != 0:
                         logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {ragflow_result.get('message')}")
                 except Exception as e:
                     logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {e}")
@@ -609,7 +600,7 @@ async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session
             knowledge.content = data.content[:500] if data.content else knowledge.title  # 保存内容摘要
         if data.type is not None:
             knowledge.type = data.type
-        
+
         knowledge.last_sync_at = datetime.now()
         db.commit()
         return ApiResponse(success=True, message="知识更新成功")
@@ -635,7 +626,7 @@ async def delete_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
         删除结果
     """
     from backend.services.ragflow_client import get_ragflow_client
-    
+
     try:
         knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
 
@@ -647,11 +638,10 @@ async def delete_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
             try:
                 ragflow_client = get_ragflow_client()
                 ragflow_result = ragflow_client.delete_document(
-                    knowledge.ragflow_dataset_id,
-                    knowledge.ragflow_document_id
+                    knowledge.ragflow_dataset_id, knowledge.ragflow_document_id
                 )
-                
-                if ragflow_result.get('code') != 0:
+
+                if ragflow_result.get("code") != 0:
                     logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {ragflow_result.get('message')}")
             except Exception as e:
                 logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {e}")
@@ -726,6 +716,7 @@ async def sync_category(category_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="分类不存在")
 
         from backend.services.knowledge_sync_service import get_sync_service
+
         sync_service = get_sync_service(db)
 
         success = sync_service.sync_category_to_ragflow(category)
@@ -759,6 +750,7 @@ async def sync_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="知识不存在")
 
         from backend.services.knowledge_sync_service import get_sync_service
+
         sync_service = get_sync_service(db)
 
         success = sync_service.sync_knowledge_to_ragflow(knowledge)
@@ -787,6 +779,7 @@ async def sync_all(db: Session = Depends(get_db)):
     """
     try:
         from backend.services.knowledge_sync_service import get_sync_service
+
         sync_service = get_sync_service(db)
 
         # 同步分类
@@ -823,6 +816,7 @@ async def get_sync_status(category_id: int, db: Session = Depends(get_db)):
     """
     try:
         from backend.services.knowledge_sync_service import get_sync_service
+
         sync_service = get_sync_service(db)
 
         status = sync_service.get_sync_status(category_id)
@@ -872,10 +866,11 @@ async def semantic_search(
                 dataset_ids.append(category.ragflow_dataset_id)
         else:
             # 搜索所有已同步的分类
-            categories = db.query(KnowledgeCategory).filter(
-                KnowledgeCategory.ragflow_dataset_id.isnot(None),
-                KnowledgeCategory.status == 1
-            ).all()
+            categories = (
+                db.query(KnowledgeCategory)
+                .filter(KnowledgeCategory.ragflow_dataset_id.isnot(None), KnowledgeCategory.status == 1)
+                .all()
+            )
             dataset_ids = [cat.ragflow_dataset_id for cat in categories]
 
         # 如果没有知识库，使用默认知识库
@@ -887,10 +882,7 @@ async def semantic_search(
 
         # 执行搜索
         results = sync_service.search_in_ragflow(
-            query=query,
-            dataset_ids=dataset_ids,
-            top_k=top_k,
-            similarity_threshold=similarity_threshold
+            query=query, dataset_ids=dataset_ids, top_k=top_k, similarity_threshold=similarity_threshold
         )
 
         return ApiResponse(success=True, data=results, message=f"找到 {len(results)} 个相关结果")
