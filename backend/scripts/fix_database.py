@@ -72,6 +72,51 @@ def check_and_fix_database():
                 # logger.debug(f"{col_name} 列已存在")
                 pass
 
+        # 检查knowledge_categories表结构（RAGFlow同步字段）
+        cursor.execute("PRAGMA table_info(knowledge_categories)")
+        cat_columns = cursor.fetchall()
+        cat_existing = [col[1] for col in cat_columns]
+
+        cat_columns_to_check = [
+            ("ragflow_dataset_id", "VARCHAR(100)"),
+            ("ragflow_synced", "BOOLEAN DEFAULT 0"),
+            ("ragflow_synced_at", "DATETIME"),
+        ]
+
+        for col_name, col_def in cat_columns_to_check:
+            if col_name not in cat_existing:
+                logger.info(f"添加knowledge_categories缺失的列: {col_name}...")
+                try:
+                    cursor.execute(f"ALTER TABLE knowledge_categories ADD COLUMN {col_name} {col_def}")
+                    conn.commit()
+                    logger.success(f"✓ knowledge_categories.{col_name} 列添加成功")
+                except Exception as e:
+                    logger.error(f"✗ 添加 knowledge_categories.{col_name} 列失败: {e}")
+                    conn.rollback()
+
+        # 检查knowledge_items表结构（RAGFlow同步字段）
+        cursor.execute("PRAGMA table_info(knowledge_items)")
+        know_columns = cursor.fetchall()
+        know_existing = [col[1] for col in know_columns]
+
+        know_columns_to_check = [
+            ("ragflow_document_id", "VARCHAR(100)"),
+            ("ragflow_synced", "BOOLEAN DEFAULT 0"),
+            ("ragflow_synced_at", "DATETIME"),
+            ("ragflow_parsed", "BOOLEAN DEFAULT 0"),
+        ]
+
+        for col_name, col_def in know_columns_to_check:
+            if col_name not in know_existing:
+                logger.info(f"添加knowledge_items缺失的列: {col_name}...")
+                try:
+                    cursor.execute(f"ALTER TABLE knowledge_items ADD COLUMN {col_name} {col_def}")
+                    conn.commit()
+                    logger.success(f"✓ knowledge_items.{col_name} 列添加成功")
+                except Exception as e:
+                    logger.error(f"✗ 添加 knowledge_items.{col_name} 列失败: {e}")
+                    conn.rollback()
+
         logger.success("数据库表结构检查和修复完成")
 
     except Exception as e:
