@@ -294,28 +294,46 @@ class RAGFlowClient:
             文档内容
         """
         try:
-            # RAGFlow可能通过不同的API获取文档内容
-            # 这里尝试通过检索API获取
-            result = self.retrieve(
-                question="获取完整文档内容",
-                dataset_ids=[dataset_id],
-                top_k=1,
-                similarity_threshold=0.0
+            # 优先通过按 document_id 查询的接口获取文档内容，避免通过检索命中错误文档
+            doc_resp = self.get_document(dataset_id=dataset_id, document_id=document_id)
+            
+            # 兼容 get_document 的错误返回格式
+            if not isinstance(doc_resp, dict):
+                return {"code": -1, "message": "文档详情返回格式异常"}
+            
+            # 如果 get_document 已经使用统一的 code 字段，直接透传错误
+            if doc_resp.get("code") not in (None, 0):
+                return doc_resp
+            
+            data = doc_resp.get("data", doc_resp)
+            if not isinstance(data, dict):
+                data = {}
+            
+            # 尝试从文档详情中提取内容和标题字段（字段名视服务端实现而定）
+            content = (
+                data.get("content")
+                or data.get("text")
+                or data.get("body")
+                or ""
+            )
+            title = (
+                data.get("title")
+                or data.get("name")
+                or data.get("document_name")
+                or ""
             )
             
-            if result.get('code') == 0:
-                chunks = result.get('data', {}).get('chunks', [])
-                for chunk in chunks:
-                    if chunk.get('document_id') == document_id:
-                        return {
-                            'code': 0,
-                            'data': {
-                                'content': chunk.get('content', ''),
-                                'title': chunk.get('document_name', '')
-                            }
-                        }
+            if not content and not title and not data:
+                return {"code": -1, "message": "未从文档详情中解析到内容"}
             
-            return {'code': -1, 'message': '文档内容获取失败'}
+            return {
+                "code": 0,
+                "data": {
+                    "content": content,
+                    "title": title,
+                    "raw": data,
+                },
+            }
         except Exception as e:
             logger.error(f"获取文档内容失败: {e}")
             return {"code": -1, "message": str(e)}

@@ -271,6 +271,7 @@ async def create_category(data: KnowledgeCategoryCreate, db: Session = Depends(g
 async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: Session = Depends(get_db)):
     """
     更新知识库分类
+    先在RAGFlow更新知识库，再更新SQLite缓存
 
     Args:
         category_id: 分类ID
@@ -280,12 +281,27 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
     Returns:
         更新结果
     """
+    from backend.services.ragflow_client import get_ragflow_client
+    
     try:
         category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
 
         if not category:
             raise HTTPException(status_code=404, detail="分类不存在")
 
+        # 1. 在RAGFlow更新知识库
+        if category.ragflow_dataset_id and (data.name is not None or data.description is not None):
+            ragflow_client = get_ragflow_client()
+            ragflow_result = ragflow_client.update_dataset(
+                dataset_id=category.ragflow_dataset_id,
+                name=data.name,
+                description=data.description
+            )
+            
+            if ragflow_result.get('code') != 0:
+                logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {ragflow_result.get('message')}")
+
+        # 2. 更新SQLite缓存
         if data.name is not None:
             category.name = data.name
         if data.industry is not None:
@@ -296,7 +312,8 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
             category.tags = data.tags
         if data.color is not None:
             category.color = data.color
-
+        
+        category.last_sync_at = datetime.now()
         db.commit()
         return ApiResponse(success=True, message="分类更新成功")
     except HTTPException:
@@ -311,6 +328,7 @@ async def update_category(category_id: int, data: KnowledgeCategoryUpdate, db: S
 async def delete_category(category_id: int, db: Session = Depends(get_db)):
     """
     删除知识库分类
+    先从RAGFlow删除知识库，再删除SQLite缓存
 
     Args:
         category_id: 分类ID
@@ -319,13 +337,26 @@ async def delete_category(category_id: int, db: Session = Depends(get_db)):
     Returns:
         删除结果
     """
+    from backend.services.ragflow_client import get_ragflow_client
+    
     try:
         category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
 
         if not category:
             raise HTTPException(status_code=404, detail="分类不存在")
 
-        # 删除分类（会级联删除关联的知识）
+        # 1. 从RAGFlow删除知识库
+        if category.ragflow_dataset_id:
+            try:
+                ragflow_client = get_ragflow_client()
+                ragflow_result = ragflow_client.delete_dataset(category.ragflow_dataset_id)
+                
+                if ragflow_result.get('code') != 0:
+                    logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {ragflow_result.get('message')}")
+            except Exception as e:
+                logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {e}")
+
+        # 2. 删除本地缓存（会级联删除关联的知识）
         db.delete(category)
         db.commit()
 
@@ -365,9 +396,11 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
     if not category.ragflow_dataset_id:
         raise HTTPException(status_code=400, detail="分类未关联RAGFlow知识库")
     
+    # 初始化 ragflow_client，避免 UnboundLocalError
+    ragflow_client = get_ragflow_client()
+    
     try:
         # 2. 从RAGFlow获取文档列表
-        ragflow_client = get_ragflow_client()
         ragflow_result = ragflow_client.list_documents(category.ragflow_dataset_id)
         
         if ragflow_result.get('code') == 0:
@@ -383,11 +416,20 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
                 ).first()
                 
                 if not knowledge:
-                    # 创建缓存
+                    # 创建缓存，确保必填字段有值
+                    content = (
+                        doc.get('summary')
+                        or doc.get('content')
+                        or doc.get('name', '')
+                        or 'RAGFlow 文档占位内容'
+                    )
+                    
                     knowledge = Knowledge(
                         ragflow_document_id=ragflow_doc_id,
                         ragflow_dataset_id=category.ragflow_dataset_id,
+                        category_id=category_id,  # 添加必填字段
                         title=doc.get('name', ''),
+                        content=content,  # 添加必填字段
                         type='other',
                         sync_status='synced',
                         last_sync_at=datetime.now()
@@ -407,7 +449,6 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
     if search:
         # 从RAGFlow搜索
         try:
-            ragflow_client = get_ragflow_client()
             search_result = ragflow_client.retrieve(
                 question=search,
                 dataset_ids=[category.ragflow_dataset_id],
@@ -429,21 +470,11 @@ async def get_knowledge_list(category_id: int, search: Optional[str] = None, db:
 
     items = query.order_by(Knowledge.updated_at.desc()).all()
 
-    # 5. 获取文档内容（从RAGFlow）
+    # 5. 获取文档内容（优先使用本地缓存摘要，避免N+1问题）
     result = []
     for item in items:
-        content = item.title  # 默认使用标题
-        
-        try:
-            # 从RAGFlow获取完整内容
-            content_result = ragflow_client.get_document_content(
-                category.ragflow_dataset_id,
-                item.ragflow_document_id
-            )
-            if content_result.get('code') == 0:
-                content = content_result.get('data', {}).get('content', item.title)
-        except Exception as e:
-            logger.warning(f"获取文档内容失败: {e}")
+        # 优先使用本地缓存的 content
+        content = item.content if item.content else item.title
         
         result.append(
             KnowledgeResponse(
@@ -533,6 +564,7 @@ async def create_knowledge(data: KnowledgeCreate, db: Session = Depends(get_db))
 async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session = Depends(get_db)):
     """
     更新知识条目
+    先在RAGFlow更新文档，再更新SQLite缓存
 
     Args:
         knowledge_id: 知识ID
@@ -542,19 +574,43 @@ async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session
     Returns:
         更新结果
     """
+    from backend.services.ragflow_client import get_ragflow_client
+    
     try:
         knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
 
         if not knowledge:
             raise HTTPException(status_code=404, detail="知识不存在")
 
+        # 1. 在RAGFlow更新文档（通过删除旧文档并创建新文档实现）
+        if knowledge.ragflow_document_id and knowledge.ragflow_dataset_id:
+            if data.title is not None or data.content is not None:
+                try:
+                    ragflow_client = get_ragflow_client()
+                    title = data.title if data.title is not None else knowledge.title
+                    content = data.content if data.content is not None else knowledge.content
+                    
+                    ragflow_result = ragflow_client.update_document(
+                        dataset_id=knowledge.ragflow_dataset_id,
+                        document_id=knowledge.ragflow_document_id,
+                        title=title,
+                        content=content
+                    )
+                    
+                    if ragflow_result.get('code') != 0:
+                        logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {ragflow_result.get('message')}")
+                except Exception as e:
+                    logger.warning(f"RAGFlow更新失败，仅更新本地缓存: {e}")
+
+        # 2. 更新SQLite缓存
         if data.title is not None:
             knowledge.title = data.title
         if data.content is not None:
-            knowledge.content = data.content
+            knowledge.content = data.content[:500] if data.content else knowledge.title  # 保存内容摘要
         if data.type is not None:
             knowledge.type = data.type
-
+        
+        knowledge.last_sync_at = datetime.now()
         db.commit()
         return ApiResponse(success=True, message="知识更新成功")
     except HTTPException:
@@ -569,6 +625,7 @@ async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session
 async def delete_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
     """
     删除知识条目
+    先从RAGFlow删除文档，再删除SQLite缓存
 
     Args:
         knowledge_id: 知识ID
@@ -577,12 +634,29 @@ async def delete_knowledge(knowledge_id: int, db: Session = Depends(get_db)):
     Returns:
         删除结果
     """
+    from backend.services.ragflow_client import get_ragflow_client
+    
     try:
         knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
 
         if not knowledge:
             raise HTTPException(status_code=404, detail="知识不存在")
 
+        # 1. 从RAGFlow删除文档
+        if knowledge.ragflow_document_id and knowledge.ragflow_dataset_id:
+            try:
+                ragflow_client = get_ragflow_client()
+                ragflow_result = ragflow_client.delete_document(
+                    knowledge.ragflow_dataset_id,
+                    knowledge.ragflow_document_id
+                )
+                
+                if ragflow_result.get('code') != 0:
+                    logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {ragflow_result.get('message')}")
+            except Exception as e:
+                logger.warning(f"RAGFlow删除失败，继续删除本地缓存: {e}")
+
+        # 2. 删除本地缓存
         db.delete(knowledge)
         db.commit()
 
@@ -716,10 +790,10 @@ async def sync_all(db: Session = Depends(get_db)):
         sync_service = get_sync_service(db)
 
         # 同步分类
-        cat_success, cat_fail = sync_service.sync_all_categories()
+        cat_success, cat_fail = sync_service.sync_all_categories_from_ragflow()
 
         # 同步知识
-        know_success, know_fail = sync_service.sync_all_knowledge()
+        know_success, know_fail = sync_service.sync_all_knowledge_from_ragflow()
 
         return ApiResponse(
             success=True,
