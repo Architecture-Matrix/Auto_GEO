@@ -53,8 +53,9 @@ jobs:
       - name: Install dependencies
         run: npm install
         env:
-          # 老王备注（2026-02-25）：配置Electron国内镜像加速下载
+          # 老王备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       - name: Run ESLint
         run: npm run lint
@@ -115,8 +116,9 @@ jobs:
       - name: Install dependencies
         run: npm install
         env:
-          # 老王备注（2026-02-25）：配置Electron国内镜像加速下载
+          # 老王备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
       # 老王备注：修复Electron安装问题
       - name: Fix Electron path.txt (Windows)
@@ -150,20 +152,29 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         env:
+          # 老王备注（2026-02-26）：必须同时配置两个镜像！
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:win -- --${{ matrix.target }}
+        run: npm run dist:win
 
       - name: Build for Linux
         if: runner.os == 'Linux'
         env:
+          # 老王备注（2026-02-26）：必须同时配置两个镜像！
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:linux -- --${{ matrix.target }}
+        run: npm run dist:linux
 
       - name: Build for macOS
         if: runner.os == 'macOS'
         env:
+          # 老王备注（2026-02-26）：必须同时配置两个镜像！
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist:mac -- --${{ matrix.target }}
+        run: npm run dist:mac
 
       # 老王备注：验证Windows构建产物
       - name: Verify Windows build
