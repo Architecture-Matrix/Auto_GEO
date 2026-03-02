@@ -10,26 +10,44 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link
-          v-for="route in visibleRoutes"
-          :key="route.name"
-          :to="route.path"
-          class="nav-item"
-          :class="{ active: isActive(route.path) }"
+        <el-menu
+          :default-active="activeMenuKey"
+          :collapse="false"
+          :unique-opened="true"
+          class="sidebar-menu"
+          router
         >
-          <el-icon>
-            <component :is="route.meta?.icon" />
-          </el-icon>
-          <span>{{ route.meta?.title }}</span>
-        </router-link>
-      </nav>
+          <template v-for="route in menuRoutes" :key="route.name">
+            <!-- 有子菜单的情况 -->
+            <el-sub-menu v-if="route.children && route.children.length > 0" :index="route.path">
+              <template #title>
+                <el-icon>
+                  <component :is="route.meta?.icon" />
+                </el-icon>
+                <span>{{ route.meta?.title }}</span>
+              </template>
+              <el-menu-item
+                v-for="child in route.children"
+                :key="child.name"
+                :index="child.path"
+              >
+                <el-icon>
+                  <component :is="child.meta?.icon" />
+                </el-icon>
+                <span>{{ child.meta?.title }}</span>
+              </el-menu-item>
+            </el-sub-menu>
 
-      <div class="sidebar-footer">
-        <div class="status-info">
-          <div class="status-dot online"></div>
-          <span>后端服务正常</span>
-        </div>
-      </div>
+            <!-- 无子菜单的情况 -->
+            <el-menu-item v-else :index="route.path">
+              <el-icon>
+                <component :is="route.meta?.icon" />
+              </el-icon>
+              <span>{{ route.meta?.title }}</span>
+            </el-menu-item>
+          </template>
+        </el-menu>
+      </nav>
     </aside>
 
     <!-- 主内容区 -->
@@ -68,28 +86,46 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Minus, FullScreen, Close } from '@element-plus/icons-vue'
+import type { RouteRecordRaw } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
 
-// 获取可见的路由（不隐藏 meta.hidden 的路由）
-
-const visibleRoutes = computed(() => {
-  return router
-    .getRoutes()
+// 构建菜单路由结构（支持子菜单）
+const menuRoutes = computed(() => {
+  const allRoutes = router.getRoutes()
     .filter(r => r.path.startsWith('/') && !r.meta?.hidden)
-    .sort((a, b) => (Number(a.meta?.order ?? 999)) - (Number(b.meta?.order ?? 999)))
+
+  // 分离父路由和子路由
+  const parentRoutes = allRoutes.filter(r => !r.meta?.parent)
+  const childRoutes = allRoutes.filter(r => r.meta?.parent)
+
+  // 按order排序
+  parentRoutes.sort((a, b) => (Number(a.meta?.order ?? 999)) - (Number(b.meta?.order ?? 999)))
+
+  // 构建带子菜单的路由结构
+  return parentRoutes.map(parentRoute => {
+    // 查找当前路由的子路由
+    const children = childRoutes
+      .filter(r => r.meta?.parent === parentRoute.name)
+      .sort((a, b) => (Number(a.meta?.order ?? 999)) - (Number(b.meta?.order ?? 999)))
+
+    return {
+      ...parentRoute,
+      children: children.length > 0 ? children : undefined
+    }
+  })
+})
+
+// 当前激活的菜单key
+const activeMenuKey = computed(() => {
+  return route.path
 })
 
 // 当前页面标题
 const currentPageTitle = computed(() => {
   return route.meta?.title || 'AutoGeo'
 })
-
-// 判断路由是否激活
-const isActive = (path: string) => {
-  return route.path === path || route.path.startsWith(path + '/')
-}
 
 // 窗口控制
 const minimizeWindow = () => {
@@ -147,10 +183,9 @@ const closeWindow = () => {
 
   .sidebar-nav {
     flex: 1;
-    padding: 16px 8px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
     overflow-y: auto;
 
     // 滚动条样式优化
@@ -171,56 +206,42 @@ const closeWindow = () => {
       }
     }
 
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: all 0.2s;
+    // Element Plus Menu 样式覆盖
+    .sidebar-menu {
+      border: none;
+      background: transparent;
 
-      &:hover {
-        background: rgba(74, 144, 226, 0.1);
-        color: var(--text-primary);
+      .el-menu-item,
+      .el-sub-menu__title {
+        color: var(--text-secondary);
+        border-radius: 8px;
+        margin: 2px 0;
+
+        &:hover {
+          background: rgba(74, 144, 226, 0.1) !important;
+          color: var(--text-primary);
+        }
+
+        .el-icon {
+          font-size: 20px;
+        }
       }
 
-      &.active {
-        background: rgba(74, 144, 226, 0.2);
+      .el-menu-item.is-active {
+        background: rgba(74, 144, 226, 0.2) !important;
         color: #4a90e2;
         border-left: 3px solid #4a90e2;
       }
 
-      .el-icon {
-        font-size: 20px;
-      }
-    }
-  }
-
-  .sidebar-footer {
-    padding: 16px;
-    border-top: 1px solid var(--border);
-
-    .status-info {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text-secondary);
-
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-
-        &.online {
-          background: #4caf50;
-          box-shadow: 0 0 8px #4caf50;
+      // 子菜单样式
+      .el-sub-menu {
+        .el-menu {
+          background: transparent;
         }
 
-        &.offline {
-          background: #f44336;
+        .el-menu-item {
+          padding-left: 48px !important;
+          font-size: 13px;
         }
       }
     }

@@ -557,3 +557,119 @@ class SiteProject(Base):
 
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+# ==================== 自动发布任务系统 ====================
+
+
+class AutoPublishTask(Base):
+    """
+    自动发布任务表
+    用于管理用户创建的后台发布任务队列
+    """
+
+    __tablename__ = "auto_publish_tasks"
+    __table_args__ = TABLE_ARGS
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+
+    # 任务基本信息
+    name = Column(String(200), nullable=False, comment="任务名称")
+    description = Column(Text, nullable=True, comment="任务描述")
+
+    # 发布配置（JSON格式存储文章和账号ID列表）
+    article_ids = Column(JSON, nullable=False, comment="文章ID列表 [1,2,3]")
+    account_ids = Column(JSON, nullable=False, comment="账号ID列表 [1,2,3]")
+
+    # 任务状态
+    status = Column(
+        String(20),
+        default="pending",
+        comment="任务状态：pending=待执行 running=执行中 completed=已完成 failed=失败 cancelled=已取消",
+    )
+
+    # 执行类型
+    exec_type = Column(
+        String(20), default="immediate", comment="执行类型：immediate=立即执行 scheduled=定时执行 interval=间隔执行"
+    )
+
+    # 定时配置
+    scheduled_at = Column(DateTime, nullable=True, comment="计划执行时间")
+    interval_minutes = Column(Integer, nullable=True, comment="间隔执行分钟数")
+
+    # 执行结果
+    total_count = Column(Integer, default=0, comment="总发布任务数（文章数×账号数）")
+    completed_count = Column(Integer, default=0, comment="已完成数量")
+    failed_count = Column(Integer, default=0, comment="失败数量")
+
+    # 错误信息
+    error_msg = Column(Text, nullable=True, comment="错误信息")
+    last_error_at = Column(DateTime, nullable=True, comment="最后错误时间")
+
+    # 执行时间
+    started_at = Column(DateTime, nullable=True, comment="实际开始时间")
+    completed_at = Column(DateTime, nullable=True, comment="实际完成时间")
+
+    # 时间戳
+    created_at = Column(DateTime, default=func.now(), comment="创建时间")
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
+
+    def __repr__(self):
+        return f"<AutoPublishTask {self.name} status={self.status}>"
+
+
+class AutoPublishRecord(Base):
+    """
+    自动发布子任务记录表
+    记录每个自动发布任务中的单次发布结果
+    """
+
+    __tablename__ = "auto_publish_records"
+    __table_args__ = TABLE_ARGS
+
+    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+
+    # 关联自动发布任务
+    task_id = Column(
+        Integer,
+        ForeignKey("auto_publish_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="所属自动发布任务ID",
+    )
+
+    # 发布目标和内容
+    article_id = Column(
+        Integer, ForeignKey("geo_articles.id", ondelete="CASCADE"), nullable=False, index=True, comment="文章ID"
+    )
+    account_id = Column(
+        Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True, comment="账号ID"
+    )
+
+    # 发布状态
+    status = Column(
+        String(20),
+        default="pending",
+        comment="状态：pending=待发布 publishing=发布中 success=成功 failed=失败 skipped=跳过",
+    )
+
+    # 发布结果
+    platform_url = Column(String(500), nullable=True, comment="发布后的文章链接")
+    error_msg = Column(Text, nullable=True, comment="错误信息")
+
+    # 重试信息
+    retry_count = Column(Integer, default=0, comment="重试次数")
+    max_retries = Column(Integer, default=3, comment="最大重试次数")
+
+    # 时间戳
+    created_at = Column(DateTime, default=func.now(), comment="创建时间")
+    started_at = Column(DateTime, nullable=True, comment="开始时间")
+    completed_at = Column(DateTime, nullable=True, comment="完成时间")
+
+    # 关联关系
+    task = relationship("AutoPublishTask", backref="records")
+    article = relationship("GeoArticle")
+    account = relationship("Account")
+
+    def __repr__(self):
+        return f"<AutoPublishRecord task_id={self.task_id} article_id={self.article_id} status={self.status}>"

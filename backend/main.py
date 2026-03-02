@@ -35,6 +35,7 @@ import backend.api.article_collection as article_collection
 import backend.api.site_builder as site_builder
 import backend.api.upload as upload
 import backend.api.client as client  # 客户管理
+import backend.api.auto_publish as auto_publish  # 自动发布任务
 
 # 导入服务组件
 from backend.services.websocket_manager import ws_manager
@@ -177,6 +178,7 @@ app.include_router(client.router)  # 客户管理
 app.include_router(auth.router)
 app.include_router(article_collection.router)
 app.include_router(site_builder.router)
+app.include_router(auto_publish.router)  # 自动发布任务管理
 
 
 # ==================== WebSocket 端点 ====================

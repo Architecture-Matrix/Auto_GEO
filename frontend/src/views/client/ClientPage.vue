@@ -367,7 +367,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadInstance, UploadUserFile, UploadRawFile } from 'element-plus'
-import { geoKeywordApi } from '@/services/api'
+import { clientApi, geoKeywordApi } from '@/services/api'
 
 // 状态
 const loading = ref(false)
@@ -446,20 +446,16 @@ const projectIndustries = [
 const loadClients = async () => {
   loading.value = true
   try {
-    const params = new URLSearchParams()
-    params.append('page', String(pagination.value.page))
-    params.append('limit', String(pagination.value.limit))
-    if (filterStatus.value !== null) params.append('status', String(filterStatus.value))
-    if (filterIndustry.value) params.append('industry', filterIndustry.value)
-    if (searchKeyword.value) params.append('keyword', searchKeyword.value)
+    const data = await clientApi.getList({
+      page: pagination.value.page,
+      limit: pagination.value.limit,
+      status: filterStatus.value ?? undefined,
+      keyword: searchKeyword.value || undefined,
+      industry: filterIndustry.value || undefined
+    })
 
-    const response = await fetch(`/api/clients?${params}`)
-    const data = await response.json()
-
-    if (data.success !== false) {
-      clients.value = data.items || []
-      pagination.value.total = data.total || 0
-    }
+    clients.value = data.items || []
+    pagination.value.total = data.total || 0
   } catch (e: any) {
     ElMessage.error('加载失败: ' + e.message)
   } finally {
@@ -470,11 +466,8 @@ const loadClients = async () => {
 // 加载统计数据
 const loadStats = async () => {
   try {
-    const response = await fetch('/api/clients/stats/overview')
-    const data = await response.json()
-    if (data.success) {
-      stats.value = data.data
-    }
+    const data = await clientApi.getStats()
+    stats.value = data.data || { total: 0, active: 0, inactive: 0, industry_distribution: {} }
   } catch (e) {
     console.error('加载统计失败', e)
   }
@@ -483,11 +476,8 @@ const loadStats = async () => {
 // 加载行业列表
 const loadIndustries = async () => {
   try {
-    const response = await fetch('/api/clients/indicators/list')
-    const data = await response.json()
-    if (data.success) {
-      industries.value = data.data || []
-    }
+    const data = await clientApi.getIndustries()
+    industries.value = data.data || []
   } catch (e) {
     console.error('加载行业列表失败', e)
   }
@@ -549,25 +539,18 @@ const saveClient = async () => {
       status: clientForm.value.status
     }
 
-    const url = isEdit.value ? `/api/clients/${clientForm.value.id}` : '/api/clients'
-    const method = isEdit.value ? 'PUT' : 'POST'
-
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    const data = await response.json()
-    if (data.success) {
-      ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
-      dialogVisible.value = false
-      loadClients()
-      loadStats()
-      loadIndustries()
+    if (isEdit.value) {
+      await clientApi.update(clientForm.value.id!, payload)
+      ElMessage.success('更新成功')
     } else {
-      ElMessage.error(data.message || '操作失败')
+      await clientApi.create(payload)
+      ElMessage.success('创建成功')
     }
+
+    dialogVisible.value = false
+    loadClients()
+    loadStats()
+    loadIndustries()
   } catch (e: any) {
     ElMessage.error('操作失败: ' + e.message)
   }
@@ -576,15 +559,10 @@ const saveClient = async () => {
 // 删除客户
 const deleteClient = async (id: number) => {
   try {
-    const response = await fetch(`/api/clients/${id}`, { method: 'DELETE' })
-    const data = await response.json()
-    if (data.success) {
-      ElMessage.success('删除成功')
-      loadClients()
-      loadStats()
-    } else {
-      ElMessage.error(data.message || '删除失败')
-    }
+    await clientApi.delete(id)
+    ElMessage.success('删除成功')
+    loadClients()
+    loadStats()
   } catch (e: any) {
     ElMessage.error('删除失败: ' + e.message)
   }
@@ -597,11 +575,8 @@ const viewProjects = async (client: any) => {
   projectsDialogVisible.value = true
 
   try {
-    const response = await fetch(`/api/clients/${client.id}/projects`)
-    const data = await response.json()
-    if (data.success) {
-      clientProjects.value = data.data || []
-    }
+    const data = await clientApi.getProjects(client.id)
+    clientProjects.value = data.data || []
   } catch (e: any) {
     ElMessage.error('加载项目失败: ' + e.message)
   } finally {
