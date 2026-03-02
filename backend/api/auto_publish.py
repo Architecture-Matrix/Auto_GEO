@@ -34,6 +34,7 @@ router = APIRouter(prefix="/api/auto-publish", tags=["自动发布任务管理"]
 
 # ==================== 全局任务执行管理器 ====================
 
+
 class AutoPublishTaskExecutor:
     """
     自动发布任务执行器
@@ -70,12 +71,14 @@ task_executor = AutoPublishTaskExecutor()
 def get_playwright_mgr():
     """延迟导入，避免循环依赖"""
     from backend.services.playwright_mgr import playwright_mgr
+
     return playwright_mgr
 
 
 def get_ws_manager():
     """获取WebSocket管理器"""
     from backend.api.publish import get_ws_manager
+
     return get_ws_manager()
 
 
@@ -105,30 +108,34 @@ async def get_auto_publish_tasks(
     # 转换为响应格式
     task_list = []
     for task in tasks:
-        task_list.append({
-            "id": task.id,
-            "name": task.name,
-            "description": task.description,
-            "article_ids": task.article_ids or [],
-            "account_ids": task.account_ids or [],
-            "status": task.status,
-            "exec_type": task.exec_type,
-            "scheduled_at": task.scheduled_at.isoformat() if task.scheduled_at else None,
-            "interval_minutes": task.interval_minutes,
-            "total_count": task.total_count,
-            "completed_count": task.completed_count,
-            "failed_count": task.failed_count,
-            "error_msg": task.error_msg,
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-        })
+        task_list.append(
+            {
+                "id": task.id,
+                "name": task.name,
+                "description": task.description,
+                "article_ids": task.article_ids or [],
+                "account_ids": task.account_ids or [],
+                "status": task.status,
+                "exec_type": task.exec_type,
+                "scheduled_at": task.scheduled_at.isoformat() if task.scheduled_at else None,
+                "interval_minutes": task.interval_minutes,
+                "total_count": task.total_count,
+                "completed_count": task.completed_count,
+                "failed_count": task.failed_count,
+                "error_msg": task.error_msg,
+                "started_at": task.started_at.isoformat() if task.started_at else None,
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            }
+        )
 
-    return ApiResponse(data={
-        "total": total,
-        "items": task_list,
-    })
+    return ApiResponse(
+        data={
+            "total": total,
+            "items": task_list,
+        }
+    )
 
 
 @router.get("/tasks/{task_id}", response_model=ApiResponse)
@@ -146,9 +153,12 @@ async def get_auto_publish_task(
         raise HTTPException(status_code=404, detail="任务不存在")
 
     # 获取子任务记录
-    records = db.query(AutoPublishRecord).filter(
-        AutoPublishRecord.task_id == task_id
-    ).order_by(AutoPublishRecord.created_at.desc()).all()
+    records = (
+        db.query(AutoPublishRecord)
+        .filter(AutoPublishRecord.task_id == task_id)
+        .order_by(AutoPublishRecord.created_at.desc())
+        .all()
+    )
 
     # 转换记录为响应格式
     record_list = []
@@ -157,46 +167,50 @@ async def get_auto_publish_task(
         article = db.query(GeoArticle).filter(GeoArticle.id == record.article_id).first()
         account = db.query(Account).filter(Account.id == record.account_id).first()
 
-        record_list.append({
-            "id": record.id,
-            "task_id": record.task_id,
-            "article_id": record.article_id,
-            "account_id": record.account_id,
-            "status": record.status,
-            "platform_url": record.platform_url,
-            "error_msg": record.error_msg,
-            "retry_count": record.retry_count,
-            "created_at": record.created_at.isoformat() if record.created_at else None,
-            "started_at": record.started_at.isoformat() if record.started_at else None,
-            "completed_at": record.completed_at.isoformat() if record.completed_at else None,
-            # 关联信息
-            "article_title": article.title if article else None,
-            "account_name": account.account_name if account else None,
-            "platform": account.platform if account else None,
-        })
+        record_list.append(
+            {
+                "id": record.id,
+                "task_id": record.task_id,
+                "article_id": record.article_id,
+                "account_id": record.account_id,
+                "status": record.status,
+                "platform_url": record.platform_url,
+                "error_msg": record.error_msg,
+                "retry_count": record.retry_count,
+                "created_at": record.created_at.isoformat() if record.created_at else None,
+                "started_at": record.started_at.isoformat() if record.started_at else None,
+                "completed_at": record.completed_at.isoformat() if record.completed_at else None,
+                # 关联信息
+                "article_title": article.title if article else None,
+                "account_name": account.account_name if account else None,
+                "platform": account.platform if account else None,
+            }
+        )
 
-    return ApiResponse(data={
-        "task": {
-            "id": task.id,
-            "name": task.name,
-            "description": task.description,
-            "article_ids": task.article_ids or [],
-            "account_ids": task.account_ids or [],
-            "status": task.status,
-            "exec_type": task.exec_type,
-            "scheduled_at": task.scheduled_at.isoformat() if task.scheduled_at else None,
-            "interval_minutes": task.interval_minutes,
-            "total_count": task.total_count,
-            "completed_count": task.completed_count,
-            "failed_count": task.failed_count,
-            "error_msg": task.error_msg,
-            "started_at": task.started_at.isoformat() if task.started_at else None,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "updated_at": task.updated_at.isoformat() if task.updated_at else None,
-        },
-        "records": record_list,
-    })
+    return ApiResponse(
+        data={
+            "task": {
+                "id": task.id,
+                "name": task.name,
+                "description": task.description,
+                "article_ids": task.article_ids or [],
+                "account_ids": task.account_ids or [],
+                "status": task.status,
+                "exec_type": task.exec_type,
+                "scheduled_at": task.scheduled_at.isoformat() if task.scheduled_at else None,
+                "interval_minutes": task.interval_minutes,
+                "total_count": task.total_count,
+                "completed_count": task.completed_count,
+                "failed_count": task.failed_count,
+                "error_msg": task.error_msg,
+                "started_at": task.started_at.isoformat() if task.started_at else None,
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            },
+            "records": record_list,
+        }
+    )
 
 
 @router.post("/tasks", response_model=ApiResponse)
@@ -476,10 +490,11 @@ async def retry_auto_publish_task(
     db.commit()
 
     # 重置失败的子任务记录
-    failed_records = db.query(AutoPublishRecord).filter(
-        AutoPublishRecord.task_id == task_id,
-        AutoPublishRecord.status == "failed"
-    ).all()
+    failed_records = (
+        db.query(AutoPublishRecord)
+        .filter(AutoPublishRecord.task_id == task_id, AutoPublishRecord.status == "failed")
+        .all()
+    )
     for record in failed_records:
         record.status = "pending"
         record.error_msg = None
@@ -509,6 +524,7 @@ async def execute_auto_publish_task(task_id: int, db: Session):
     """
     # 获取新的session（避免在异步线程中使用过期的session）
     from backend.database import SessionLocal
+
     db = SessionLocal()
 
     try:
@@ -526,10 +542,11 @@ async def execute_auto_publish_task(task_id: int, db: Session):
         task_executor.start_task(task_id)
 
         # 3. 获取子任务记录
-        records = db.query(AutoPublishRecord).filter(
-            AutoPublishRecord.task_id == task_id,
-            AutoPublishRecord.status == "pending"
-        ).all()
+        records = (
+            db.query(AutoPublishRecord)
+            .filter(AutoPublishRecord.task_id == task_id, AutoPublishRecord.status == "pending")
+            .all()
+        )
 
         logger.info(f"开始执行自动发布任务: {task_id}, 子任务数: {len(records)}")
 
@@ -585,25 +602,27 @@ async def execute_auto_publish_task(task_id: int, db: Session):
                 ws_mgr = get_ws_manager()
                 if ws_mgr:
                     platform_config = PLATFORMS.get(account.platform, {})
-                    await ws_mgr.broadcast({
-                        "type": "auto_publish_progress",
-                        "task_id": task_id,
-                        "data": {
-                            "record_id": record.id,
-                            "article_id": article.id,
-                            "article_title": article.title,
-                            "account_id": account.id,
-                            "account_name": account.account_name,
-                            "platform": account.platform,
-                            "platform_name": platform_config.get("name", account.platform),
-                            "status": record.status,
-                            "platform_url": record.platform_url,
-                            "error_msg": record.error_msg,
-                            "completed_count": task.completed_count,
-                            "failed_count": task.failed_count,
-                            "total_count": task.total_count,
-                        },
-                    })
+                    await ws_mgr.broadcast(
+                        {
+                            "type": "auto_publish_progress",
+                            "task_id": task_id,
+                            "data": {
+                                "record_id": record.id,
+                                "article_id": article.id,
+                                "article_title": article.title,
+                                "account_id": account.id,
+                                "account_name": account.account_name,
+                                "platform": account.platform,
+                                "platform_name": platform_config.get("name", account.platform),
+                                "status": record.status,
+                                "platform_url": record.platform_url,
+                                "error_msg": record.error_msg,
+                                "completed_count": task.completed_count,
+                                "failed_count": task.failed_count,
+                                "total_count": task.total_count,
+                            },
+                        }
+                    )
 
             except Exception as e:
                 logger.error(f"发布子任务失败: {record.id}, {e}")

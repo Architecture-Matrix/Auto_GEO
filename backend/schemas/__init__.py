@@ -185,8 +185,8 @@ class ArticleListResponse(BaseModel):
 class PublishTaskCreate(BaseModel):
     """创建发布任务请求"""
 
-    article_ids: List[int] = Field(..., min_items=1, description="文章ID列表")
-    account_ids: List[int] = Field(..., min_items=1, description="账号ID列表")
+    article_ids: List[int] = Field(..., description="文章ID列表")
+    account_ids: List[int] = Field(..., description="账号ID列表")
 
 
 class PublishTaskResponse(BaseModel):
@@ -271,8 +271,8 @@ class AutoPublishTaskCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=200, description="任务名称")
     description: Optional[str] = Field(None, description="任务描述")
-    article_ids: List[int] = Field(..., min_items=1, description="文章ID列表")
-    account_ids: List[int] = Field(..., min_items=1, description="账号ID列表")
+    article_ids: List[int] = Field(..., description="文章ID列表")
+    account_ids: List[int] = Field(..., description="账号ID列表")
     exec_type: str = Field(
         default="immediate", description="执行类型：immediate=立即执行 scheduled=定时执行 interval=间隔执行"
     )
