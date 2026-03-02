@@ -43,40 +43,41 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: AutoGeo
-mac:
-  target:
-    - target: dmg
-      arch:
-        - x64
-  category: public.app-category.productivity
-  identity: null
-  hardenedRuntime: false
-  gatekeeperAssess: false
-dmg:
-  contents:
-    - x: 130
-      'y': 220
-      type: file
-      path: AutoGeo.app
-    - x: 410
-      'y': 220
-      type: link
-      path: /Applications
-  window:
-    width: 540
-    height: 380
-linux:
-  target:
-    - target: AppImage
-      arch:
-        - x64
-    - target: deb
-      arch:
-        - x64
-  category: Utility
-  synopsis: AI-powered multi-platform article publishing assistant
-deb:
-  priority: optional
+# Linux和Mac构建已禁用，只构建Windows版本
+# mac:
+#   target:
+#     - target: dmg
+#       arch:
+#         - x64
+#   category: public.app-category.productivity
+#   identity: null
+#   hardenedRuntime: false
+#   gatekeeperAssess: false
+# dmg:
+#   contents:
+#     - x: 130
+#       'y': 220
+#       type: file
+#       path: AutoGeo.app
+#     - x: 410
+#       'y': 220
+#       type: link
+#       path: /Applications
+#   window:
+#     width: 540
+#     height: 380
+# linux:
+#   target:
+#     - target: AppImage
+#       arch:
+#         - x64
+#     - target: deb
+#       arch:
+#         - x64
+#   category: Utility
+#   synopsis: AI-powered multi-platform article publishing assistant
+# deb:
+#   priority: optional
 
 # 备注（2026-02-26）：禁用publish功能（不需要自动更新）
 # 如果需要启用自动更新，需要配置完整的Git仓库或添加repository字段到package.json
