@@ -33,7 +33,7 @@ DATABASE_DIR.mkdir(exist_ok=True)
 
 # ==================== 应用配置 ====================
 APP_NAME = "AutoGeo Backend"
-APP_VERSION = "2.0.0"
+APP_VERSION = "0.0.3"
 DEBUG = True
 
 # ==================== 服务配置 ====================
