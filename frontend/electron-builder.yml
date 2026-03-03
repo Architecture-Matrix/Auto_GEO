@@ -7,14 +7,14 @@ directories:
 files:
   - out/**/*
   - package.json
-  # 老王备注（2026-02-26）：排除devDependencies，只打包production dependencies
+  # 排除devDependencies，只打包production dependencies
   - "!**/node_modules/*/{TEST,test,tests,__tests__,example,examples}/**"
   - "!**/node_modules/*.md"
   - "!**/node_modules/*.ts"
   - "!**/node_modules/*.map"
   # electron-builder 会自动打包 dependencies（从 package.json 读取）
   # 如果需要排除某些依赖，可以使用 ! 前缀
-# 老王备注（2026-02-25）：后端部署到服务器，不需要打包backend目录
+# 备注（2026-02-25）：后端部署到服务器，不需要打包backend目录
 # extraResources:
 #   - from: ../backend
 #     to: backend
@@ -25,7 +25,7 @@ files:
 #       - '!**/.pytest_cache'
 #       - '!**/tests'
 #       - '!**/.git'
-# 关闭 asar 打包，避免模块路径问题（老王我实测这玩意儿是个坑）
+# 关闭 asar 打包，避免模块路径问题（实测这玩意儿是个坑）
 asar: false
 win:
   target:
@@ -78,6 +78,6 @@ linux:
 deb:
   priority: optional
 
-# 老王备注（2026-02-26）：禁用publish功能（不需要自动更新）
+# 备注（2026-02-26）：禁用publish功能（不需要自动更新）
 # 如果需要启用自动更新，需要配置完整的Git仓库或添加repository字段到package.json
 publish: null

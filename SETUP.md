@@ -1,9 +1,6 @@
 # 🚀 AutoGeo 项目设置指南
 
-> **老王备注**：这个文档详细说明从零开始设置AutoGeo项目的每一步！clone下来就能跑，艹！
-
 **更新日期**: 2026-02-25
-**维护者**: 老王
 
 ---
 
@@ -173,7 +170,7 @@ chmod +x scripts/fix-electron.sh
 ./scripts/fix-electron.sh
 ```
 
-**说明**：这个SB的Electron安装经常半途失败，老王我写了修复脚本自动处理！
+**说明**：这个Electron安装经常半途失败，写了修复脚本自动处理！
 
 ### 步骤7: 启动前端应用
 
@@ -285,11 +282,9 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 | **Backend Deploy** | push到main | ✅ Docker构建<br>✅ 推送到阿里云ACR<br>✅ 自动部署到服务器 | [`.github/workflows/backend-deploy.yml`](.github/workflows/backend-deploy.yml) |
 | **Electron Build** | push/PR到frontend | ✅ 跨平台打包<br>✅ 构建安装包 | [`.github/workflows/electron-build.yml`](.github/workflows/electron-build.yml) |
 
-> **老王备注**：点击配置文件列的链接可以直接查看workflow源码！
-
 #### Backend Deploy 部署流程
 
-**老王备注**：这个SB工作流负责后端自动部署，使用阿里云ACR加速镜像拉取！
+**备注**：这个工作流负责后端自动部署，使用阿里云ACR加速镜像拉取！
 
 **部署架构**：
 ```
@@ -325,7 +320,7 @@ GitHub Actions → 构建Docker镜像
 
 #### 启动验证工作流详解 <a name="启动验证工作流详解"></a>
 
-**老王备注**：这个SB工作流专门验证clone后能否启动，包含以下检查：
+**备注**：这个工作流专门验证clone后能否启动，包含以下检查：
 
 1. **后端启动检查** (`backend-startup`)：
    - 安装Python依赖
@@ -500,4 +495,4 @@ tail -f logs/backend.log
 
 ---
 
-**祝你设置顺利！有问题随时叫老王！** 💪
+**祝你设置顺利！** 💪

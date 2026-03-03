@@ -7,11 +7,10 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [master, dev]
-    paths:
-      - 'backend/**'
+    branches: [master, dev, main]
+    # 移除paths限制，确保所有PR都运行完整检查
 
-# 老王备注：添加权限配置，让Security Scan能正常上传结果
+# 添加权限配置，让Security Scan能正常上传结果
 permissions:
   contents: read
   security-events: write
@@ -97,11 +96,11 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    # 老王备注：job级别权限
+    # job级别权限
     permissions:
       contents: read
-      actions: read  # 老王备注：修复telemetry权限问题
-      # 老王备注（2026-02-25）：不再需要security-events: write
+      actions: read  # 修复telemetry权限问题
+      # 备注（2026-02-25）：不再需要security-events: write
       # 因为我们将结果上传为Artifact而不是GitHub Code Scanning
       # security-events: write  # 如果启用Advanced Security，取消注释此行
 
@@ -109,19 +108,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # 老王备注：必须fetch-all才能检测完整历史
+          # 必须fetch-all才能检测完整历史
           fetch-depth: 0
 
-      # 老王备注：Gitleaks检测代码中的密钥泄露、硬编码密码、API密钥等
-      # 老王备注（2026-02-25）：组织账号需要GITLEAKS_LICENSE许可证
+      # Gitleaks检测代码中的密钥泄露、硬编码密码、API密钥等
+      # 备注（2026-02-25）：组织账号需要GITLEAKS_LICENSE许可证
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # 组织账号必需
-        continue-on-error: true  # 老王备注：允许失败，避免阻塞Trivy运行
+        continue-on-error: true  # 允许失败，避免阻塞Trivy运行
 
-      # 老王备注：Trivy检测依赖包的已知漏洞（CVE）
+      # Trivy检测依赖包的已知漏洞（CVE）
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -130,7 +129,7 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
 
-      # 老王备注：上传Trivy扫描结果为Artifact（不需要Advanced Security）
+      # 上传Trivy扫描结果为Artifact（不需要Advanced Security）
       - name: Upload Trivy results as Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -138,7 +137,7 @@ jobs:
           path: trivy-results.sarif
           retention-days: 30
 
-      # 老王备注（2026-02-25）：GitHub Advanced Security是付费功能
+      # 备注（2026-02-25）：GitHub Advanced Security是付费功能
       # 如果启用了Advanced Security，可以取消下面的注释来上传到Code Scanning
       # - name: Upload Trivy results to GitHub Security
       #   uses: github/codeql-action/upload-sarif@v4

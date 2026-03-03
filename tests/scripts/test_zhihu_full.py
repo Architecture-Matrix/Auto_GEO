@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 知乎完整发布流程测试脚本 V2
-老王增加了更多调试信息！
 """
 
 import asyncio
@@ -40,7 +39,7 @@ async def find_all_inputs(page):
 async def test_full_publish_flow():
     """测试完整的知乎发布流程"""
 
-    test_title = "老王的测试文章"
+    test_title = "测试文章"
     test_content = "这是测试正文内容。\n\n第二段内容。"
 
     try:

@@ -1,7 +1,7 @@
 name: Electron Build & Release
 
 on:
-  # 老王备注（2026-02-25）：推送tag时触发（正式发布）或frontend代码更新时触发（自动构建）
+  # 备注（2026-02-25）：推送tag时触发（正式发布）或frontend代码更新时触发（自动构建）
   push:
     branches: [main, master]
     tags:
@@ -9,7 +9,7 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/electron-build.yml'
-  # 老王备注（2026-02-25）：支持手动触发
+  # 备注（2026-02-25）：支持手动触发
   workflow_dispatch:
     inputs:
       version:
@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: npm install
         env:
-          # 老王备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
+          # 备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
@@ -116,13 +116,13 @@ jobs:
       - name: Install dependencies
         run: npm install
         env:
-          # 老王备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
+          # 备注（2026-02-26）：配置Electron国内镜像加速下载（必须同时配置两个！）
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
 
-      # 老王备注：修复Electron安装问题
+      # 修复Electron安装问题
       - name: Fix Electron path.txt (Windows)
-        if: runner.os == 'Windows'
+        if: matrix.platform == 'windows'
         shell: powershell
         run: |
           if (Test-Path "node_modules\electron\dist\electron.exe") {
@@ -131,7 +131,7 @@ jobs:
           }
 
       - name: Fix Electron path.txt (Linux/macOS)
-        if: runner.os != 'Windows'
+        if: matrix.platform != 'windows'
         run: |
           if [ -f "node_modules/electron/dist/electron" ]; then
             echo "electron" > node_modules/electron/path.txt
@@ -144,41 +144,38 @@ jobs:
       - name: Build electron main
         run: npm run build:electron
 
-      # 老王备注（2026-02-25）：调用构建前准备脚本
+      # 备注（2026-02-25）：调用构建前准备脚本
       - name: Run before-build script
         run: node scripts/before-build.js
 
       - name: Build for Windows
-        if: runner.os == 'Windows'
+        if: matrix.platform == 'windows'
         shell: powershell
         env:
-          # 老王备注（2026-02-26）：必须同时配置两个镜像！
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist:win
 
       - name: Build for Linux
-        if: runner.os == 'Linux'
+        if: matrix.platform == 'linux'
         env:
-          # 老王备注（2026-02-26）：必须同时配置两个镜像！
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist:linux
 
       - name: Build for macOS
-        if: runner.os == 'macOS'
+        if: matrix.platform == 'macos'
         env:
-          # 老王备注（2026-02-26）：必须同时配置两个镜像！
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist:mac
 
-      # 老王备注：验证Windows构建产物
+      # 验证Windows构建产物
       - name: Verify Windows build
-        if: runner.os == 'Windows'
+        if: matrix.platform == 'windows'
         shell: pwsh
         run: |
           Write-Host "=== 验证Windows构建产物 ==="
@@ -187,9 +184,9 @@ jobs:
           if (-not $exeFiles) { Write-Host "❌ 未找到exe文件！"; exit 1 }
           Write-Host "✅ exe文件验证通过！"
 
-      # 老王备注：验证Linux构建产物
+      # 验证Linux构建产物
       - name: Verify Linux build
-        if: runner.os == 'Linux'
+        if: matrix.platform == 'linux'
         run: |
           echo "=== 验证Linux构建产物 ==="
           ls -lh dist/ 2>/dev/null || echo "dist目录不存在"
@@ -199,9 +196,9 @@ jobs:
           fi
           echo "✅ Linux构建产物验证通过！"
 
-      # 老王备注：验证macOS构建产物
+      # 验证macOS构建产物
       - name: Verify macOS build
-        if: runner.os == 'macOS'
+        if: matrix.platform == 'macos'
         run: |
           echo "=== 验证macOS构建产物 ==="
           ls -lh dist/ 2>/dev/null || echo "dist目录不存在"
@@ -211,23 +208,23 @@ jobs:
           fi
           echo "✅ macOS构建产物验证通过！"
 
-      # 老王备注：列出所有构建产物（用于调试）
+      # 列出所有构建产物（用于调试）
       - name: List all build artifacts (Windows)
-        if: always() && runner.os == 'Windows'
+        if: always() && matrix.platform == 'windows'
         shell: pwsh
         run: |
           Write-Host "=== dist目录内容 ==="
           if (Test-Path "dist") { Get-ChildItem -Path dist -File | ForEach-Object { Write-Host "$($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" } } else { Write-Host "dist目录不存在" }
 
-      # 老王备注：列出所有构建产物（用于调试）
+      # 列出所有构建产物（用于调试）
       - name: List all build artifacts (Linux/macOS)
-        if: always() && runner.os != 'Windows'
+        if: always() && matrix.platform != 'windows'
         run: |
           echo "=== dist目录内容 ==="
           ls -lah dist/ 2>/dev/null || echo "dist目录不存在"
 
-      # 老王备注：只在tag推送或手动触发create_release=true时上传到Release
-      # 老王备注（2026-02-26）：先复制文件到根目录dist/，再上传（working-directory对uses步骤不生效）
+      # 只在tag推送或手动触发create_release=true时上传到Release
+      # 备注（2026-02-26）：先复制文件到根目录dist/，再上传（working-directory对uses步骤不生效）
       - name: Copy files for release
         if: |
           startsWith(github.ref, 'refs/tags/') ||
@@ -258,17 +255,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # 备注（2026-02-26）：上传构建artifacts到GitHub（路径相对于仓库根目录）
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
-          path: dist/*
+          path: frontend/dist/*
           retention-days: 30
           if-no-files-found: error
         if: always()
 
-      - name: Build summary
-        if: success() && runner.os == 'Windows'
+      # 备注（2026-02-26）：Windows构建摘要（使用纯bash语法）
+      - name: Build summary (Windows)
+        if: success() && matrix.platform == 'windows'
+        shell: bash
         run: |
           echo "### 🎉 ${{ matrix.platform }} 构建成功！" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -277,9 +277,33 @@ jobs:
           echo "- **格式**: ${{ matrix.target }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### 构建产物：" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            Get-ChildItem -Path dist -Filter "*.exe" | ForEach-Object {
-              echo "- $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)" >> $GITHUB_STEP_SUMMARY
-            }
+          if [ -d "dist" ]; then
+            for file in dist/*.exe; do
+              if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                size=$(ls -lh "$file" | awk '{print $5}')
+                echo "- $filename ($size)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
           fi
-        shell: bash
+
+      # 备注（2026-02-26）：Linux/macOS构建摘要（使用纯bash语法）
+      - name: Build summary (Linux/macOS)
+        if: success() && matrix.platform != 'windows'
+        run: |
+          echo "### 🎉 ${{ matrix.platform }} 构建成功！" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **平台**: ${{ matrix.platform }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **架构**: ${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **格式**: ${{ matrix.target }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### 构建产物：" >> $GITHUB_STEP_SUMMARY
+          if [ -d "dist" ]; then
+            for file in dist/*.{AppImage,deb,dmg}; do
+              if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                size=$(ls -lh "$file" | awk '{print $5}')
+                echo "- $filename ($size)" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi

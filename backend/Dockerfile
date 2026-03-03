@@ -1,5 +1,4 @@
 # AutoGeo Backend Dockerfile (优化版 v3.1)
-# 老王出品，必属精品！
 # 多阶段构建 + 安全优化 + 生产就绪
 
 # ============================================
@@ -69,7 +68,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /tmp/requirements.txt && \
     rm /tmp/requirements.txt
 
-# 安装 Playwright 浏览器（老王备注：手动安装依赖避免Debian Trixie包名问题）
+# 安装 Playwright 浏览器（手动安装依赖避免Debian Trixie包名问题）
 RUN playwright install chromium
 
 # 手动安装Playwright依赖（不用playwright install-deps，因为Debian Trixie包名变了）
@@ -156,7 +155,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean
 
 # 创建应用用户（安全最佳实践）
-# 老王备注：创建独立的数据目录，不要和代码目录混在一起！
+# 创建独立的数据目录，不要和代码目录混在一起！
 # /app/database - 数据库文件存储（独立挂载）
 # /app/backend - 代码目录（不要挂载，否则会覆盖代码！）
 RUN useradd -m -u 1000 -s /bin/bash autogeo && \
@@ -169,16 +168,16 @@ COPY --from=builder /ms-playwright /ms-playwright
 ENV PATH="/opt/venv/bin:$PATH"
 
 # 复制应用代码
-# 老王备注：Docker context在./backend，所以backend内容会复制到/app/backend/
+# Docker context在./backend，所以backend内容会复制到/app/backend/
 RUN mkdir -p /app/backend
 COPY --chown=autogeo:autogeo . /app/backend/
 
-# 老王备注：创建 backend 包的父结构，确保能正确导入
+# 创建 backend 包的父结构，确保能正确导入
 # 容器内结构：/app/backend/main.py, /app/backend/database/, 等
 # 我们需要让 /app/backend 成为可导入的 backend 包
 
 # 设置PYTHONPATH和工作目录
-# 老王备注：PYTHONPATH=/app 让 from backend.xxx import 正常工作
+# PYTHONPATH=/app 让 from backend.xxx import 正常工作
 ENV PYTHONPATH="/app"
 WORKDIR /app
 
@@ -199,6 +198,6 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8001/api/health || exit 1
 
-# 老王备注：使用 -m 参数以模块方式运行，这样 sys.path[0] 会是 /app 而不是 /app/backend
+# 使用 -m 参数以模块方式运行，这样 sys.path[0] 会是 /app 而不是 /app/backend
 # 这样 from backend.database import 就能正确解析了
 CMD ["python", "-m", "backend.main"]

@@ -1,7 +1,7 @@
 {
   "name": "autogeo-launcher",
   "version": "3.1.0",
-  "description": "AutoGeo跨平台启动器 - 老王出品",
+  "description": "AutoGeo跨平台启动器",
   "main": "quickstart.js",
   "bin": "quickstart.js",
   "scripts": {
@@ -26,6 +26,6 @@
     "launcher",
     "cross-platform"
   ],
-  "author": "老王",
+  "author": "",
   "license": "MIT"
 }

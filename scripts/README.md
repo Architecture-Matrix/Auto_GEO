@@ -1,6 +1,5 @@
 # Scripts Directory
 
-> **Maintainer**: 老王
 > **Updated**: 2026-02-24
 > **Version**: v3.1.1
 
@@ -222,6 +221,5 @@ For issues or questions:
 
 ---
 
-**Maintainer**: 老王
 **Updated**: 2026-02-24
 **Version**: v3.1.1

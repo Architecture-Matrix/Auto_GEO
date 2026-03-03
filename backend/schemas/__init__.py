@@ -185,8 +185,8 @@ class ArticleListResponse(BaseModel):
 class PublishTaskCreate(BaseModel):
     """创建发布任务请求"""
 
-    article_ids: List[int] = Field(..., min_items=1, description="文章ID列表")
-    account_ids: List[int] = Field(..., min_items=1, description="账号ID列表")
+    article_ids: List[int] = Field(..., description="文章ID列表")
+    account_ids: List[int] = Field(..., description="账号ID列表")
 
 
 class PublishTaskResponse(BaseModel):
@@ -263,3 +263,83 @@ class AccountCheckSummary(BaseModel):
     failed: int
     results: List[AccountCheckResult]
     check_time: str
+
+
+# ==================== 自动发布任务相关 ====================
+class AutoPublishTaskCreate(BaseModel):
+    """创建自动发布任务请求"""
+
+    name: str = Field(..., min_length=1, max_length=200, description="任务名称")
+    description: Optional[str] = Field(None, description="任务描述")
+    article_ids: List[int] = Field(..., description="文章ID列表")
+    account_ids: List[int] = Field(..., description="账号ID列表")
+    exec_type: str = Field(
+        default="immediate", description="执行类型：immediate=立即执行 scheduled=定时执行 interval=间隔执行"
+    )
+    scheduled_at: Optional[str] = Field(None, description="定时执行时间（ISO格式）")
+    interval_minutes: Optional[int] = Field(None, ge=1, description="间隔执行分钟数")
+
+
+class AutoPublishTaskUpdate(BaseModel):
+    """更新自动发布任务请求"""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    status: Optional[str] = Field(None, description="任务状态：pending/running/completed/failed/cancelled")
+    scheduled_at: Optional[str] = None
+    interval_minutes: Optional[int] = None
+
+
+class AutoPublishTaskResponse(BaseModel):
+    """自动发布任务响应"""
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    article_ids: List[int]
+    account_ids: List[int]
+    status: str
+    exec_type: str
+    scheduled_at: Optional[datetime] = None
+    interval_minutes: Optional[int] = None
+    total_count: int
+    completed_count: int
+    failed_count: int
+    error_msg: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AutoPublishRecordResponse(BaseModel):
+    """自动发布子任务记录响应"""
+
+    id: int
+    task_id: int
+    article_id: int
+    account_id: int
+    status: str
+    platform_url: Optional[str] = None
+    error_msg: Optional[str] = None
+    retry_count: int
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    # 关联信息（通过join获取）
+    article_title: Optional[str] = None
+    account_name: Optional[str] = None
+    platform: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AutoPublishTaskDetailResponse(AutoPublishTaskResponse):
+    """自动发布任务详情响应（含子任务记录）"""
+
+    records: List[AutoPublishRecordResponse] = []

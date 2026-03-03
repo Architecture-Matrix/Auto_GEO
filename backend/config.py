@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 DATA_DIR = BASE_DIR / ".cookies"
 
-# 老王备注：数据库目录需要和代码目录分离，否则 Docker 挂载会覆盖代码！
+# 数据库目录需要和代码目录分离，否则 Docker 挂载会覆盖代码！
 # 本地开发: backend/database/
 # Docker 环境: /app/database/ (独立目录，不覆盖代码)
 _DOCKER_DB_DIR = Path("/app/database")
@@ -37,13 +37,13 @@ APP_VERSION = "2.0.0"
 DEBUG = True
 
 # ==================== 服务配置 ====================
-# 老王备注：生产环境用0.0.0.0监听所有IP，Docker外部才能访问！
+# 生产环境用0.0.0.0监听所有IP，Docker外部才能访问！
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8001"))  # 修改的：避开8000端口的Windows残留占用问题
 RELOAD = False  # 修复：Windows 上 Playwright 需要 ProactorEventLoop，与 reload 模式冲突！
 
 # CORS配置
-# 老王备注：添加生产服务器IP，否则前端会跨域报错！
+# 添加生产服务器IP，否则前端会跨域报错！
 _CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")
 CORS_ORIGINS = [
     "http://localhost:5179",
@@ -491,9 +491,9 @@ DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1")
 # RAGFlow 服务地址
 RAGFLOW_BASE_URL = os.getenv("RAGFLOW_BASE_URL", "https://ragflow.xinzhixietong.com")
 # RAGFlow API Key
-RAGFLOW_API_KEY = os.getenv("RAGFLOW_API_KEY", "")
+RAGFLOW_API_KEY = os.getenv("RAGFLOW_API_KEY", "ragflow-54x_gvOP6KPjRqAROwfD1_uE7DnEcWn6zoczEeIQYIY")
 # RAGFlow 知识库ID（用于存储采集的文章）
-RAGFLOW_DATASET_ID = os.getenv("RAGFLOW_DATASET_ID", "")
+RAGFLOW_DATASET_ID = os.getenv("RAGFLOW_DATASET_ID", "dff2935cfc2011f0b36f0e3309b7ec55")
 # RAGFlow 知识库名称（自动创建时使用）
 RAGFLOW_DATASET_NAME = os.getenv("RAGFLOW_DATASET_NAME", "reference_articles_kb")
 # 去重相似度阈值

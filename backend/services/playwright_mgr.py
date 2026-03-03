@@ -138,7 +138,7 @@ class PlaywrightManager:
             if "--disable-gpu" not in args:
                 args.append("--disable-gpu")
 
-        # 检测是否在Docker环境中（老王备注：Docker必须用headless）
+        # 检测是否在Docker环境中（备注：Docker必须用headless）
         is_docker = os.path.exists("/.dockerenv")
         if not is_docker:
             try:

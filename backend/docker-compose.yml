@@ -1,5 +1,5 @@
 # AutoGeo Backend Docker Compose
-# 老王我配置的生产版本！
+# 生产环境配置
 
 version: '3.8'
 

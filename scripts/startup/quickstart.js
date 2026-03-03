@@ -2,12 +2,11 @@
 /**
  * ========================================
  * AutoGeo Project Launcher (Cross-Platform)
- * Maintainer: 老王
  * Version: v3.1.0
  * Updated: 2026-02-24
  * ========================================
  *
- * 老王备注：
+ * 备注：
  * 这是跨平台Node.js版本，支持Windows/Linux/macOS
  * 可以打包成exe运行
  */
@@ -619,7 +618,7 @@ function startProcessInNewWindow(title, command, args, env, cwd) {
 
   if (isWindows) {
     // Windows: 在新cmd窗口启动
-    // 老王备注：命令需要正确拼接，env变量+命令+参数
+    // 备注：命令需要正确拼接，env变量+命令+参数
     const envVars = Object.entries(env)
       .map(([k, v]) => `set ${k}=${v}&& `)
       .join('');

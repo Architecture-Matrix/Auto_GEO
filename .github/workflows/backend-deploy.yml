@@ -21,7 +21,7 @@ env:
   # 阿里云 ACR 个人版配置（广州）
   ALIYUN_REGISTRY: crpi-lwz264sedmauvivo.cn-guangzhou.personal.cr.aliyuncs.com
   ALIYUN_IMAGE: crpi-lwz264sedmauvivo.cn-guangzhou.personal.cr.aliyuncs.com/opencaio/auto_geo_backend
-  # 老王备注：个人版ACR地址格式是 crpi-xxx.personal.cr.aliyuncs.com
+  # 个人版ACR地址格式是 crpi-xxx.personal.cr.aliyuncs.com
 
 jobs:
   # ============================================
@@ -83,7 +83,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # 老王备注：zstd压缩，加快拉取速度
+          # zstd压缩，加快拉取速度
           compression: zstd
           compression-level: 9
           build-args: |
@@ -130,7 +130,7 @@ jobs:
             echo "🚀 开始部署 AutoGeo 后端..."
 
             # 设置变量
-            # 老王备注：优先使用阿里云镜像，失败则用GHCR
+            # 优先使用阿里云镜像，失败则用GHCR
             ALIYUN_IMAGE="${{ env.ALIYUN_IMAGE }}"
             GHCR_IMAGE="${{ env.GHCR_IMAGE }}"
             CONTAINER_NAME="autogeo-backend"
@@ -163,7 +163,7 @@ jobs:
             echo ""
             echo "📦 第一步：清理本地缓存的 latest 镜像..."
 
-            # 老王备注：先删除本地 latest 标签的旧镜像，确保拉取到最新版本
+            # 先删除本地 latest 标签的旧镜像，确保拉取到最新版本
             docker rmi $ALIYUN_IMAGE:latest 2>/dev/null || echo "阿里云镜像本地无缓存"
             docker rmi $GHCR_IMAGE:latest 2>/dev/null || echo "GHCR镜像本地无缓存"
 
@@ -212,7 +212,7 @@ jobs:
             echo ""
             echo "⏹️  第三步：停止并删除旧容器..."
 
-            # 老王备注：必须先停止容器，否则镜像无法删除
+            # 必须先停止容器，否则镜像无法删除
             if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
                 echo "发现旧容器，正在停止..."
                 docker stop $CONTAINER_NAME || true
@@ -225,7 +225,7 @@ jobs:
             echo ""
             echo "🗑️  第四步：清理旧镜像..."
 
-            # 老王备注：删除所有同名标签的旧镜像（保留新拉取的）
+            # 删除所有同名标签的旧镜像（保留新拉取的）
             # 先获取当前使用镜像的IMAGE ID
             CURRENT_IMAGE_ID=$(docker images "$IMAGE_TO_USE" --format "{{.ID}}")
 
@@ -248,7 +248,7 @@ jobs:
             echo ""
             echo "📁 第五步：准备数据目录..."
 
-            # 老王备注：创建独立的数据目录，不要覆盖代码目录！
+            # 创建独立的数据目录，不要覆盖代码目录！
             # /app/database - 数据库文件（独立挂载，不覆盖代码）
             # /app/backend - 代码目录（不要挂载！）
             mkdir -p ~/autogeo/data ~/autogeo/logs ~/autogeo/database ~/autogeo/cookies
@@ -260,7 +260,7 @@ jobs:
 
             docker rm -f $CONTAINER_NAME 2>/dev/null || true
 
-            # 老王备注：先测试镜像是否能正常启动（诊断）
+            # 先测试镜像是否能正常启动（诊断）
             echo "=== 测试镜像启动 ==="
             docker run --rm $IMAGE_TO_USE python -c "import sys; print('Python:', sys.version); from backend.database import init_db; print('✅ 模块导入成功')" || {
                 echo "❌ 镜像测试失败，尝试直接运行"
@@ -287,7 +287,7 @@ jobs:
 
             echo "✅ 容器已启动，ID: $CONTAINER_ID"
 
-            # 老王备注：诊断容器内部环境
+            # 诊断容器内部环境
             echo ""
             echo "=== 容器内部环境诊断 ==="
             docker exec $CONTAINER_NAME python -c "import sys; print('PYTHONPATH:'); print(sys.path)" 2>/dev/null || echo "无法执行诊断"

@@ -1,6 +1,6 @@
 [tool.ruff]
-# 老王备注：Ruff配置，用于代码质量检查
-# 这些规则是老王我根据实际情况调整的，别tm乱改！
+# 备注：Ruff配置，用于代码质量检查
+# 这些规则是根据实际情况调整的
 
 line-length = 120
 target-version = "py312"
@@ -10,7 +10,7 @@ target-version = "py312"
 select = ["F"]
 
 ignore = [
-    # 裸except - 老王我故意用的，捕获所有异常并安全处理
+    # 裸except - 捕获所有异常并安全处理
     "E722",
 
     # 星号导入 - __init__.py中需要使用 `from backend.config import *`

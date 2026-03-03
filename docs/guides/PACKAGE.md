@@ -1,7 +1,5 @@
 # 📦 AutoGeo 打包与分发指南
 
-> **老王备注**：艹，pkg这个SB工具有问题！老王我给你准备了替代方案！
-
 **更新日期**: 2026-02-24
 **版本**: v3.1.0
 
@@ -24,7 +22,7 @@ AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
 
 ---
 
-## 🎯 替代方案（老王推荐）
+## 🎯 替代方案（推荐）
 
 ### 方案1：智能包装器（推荐）⭐⭐⭐⭐⭐
 
@@ -247,7 +245,7 @@ nexe scripts/startup/quickstart.js -o quickstart.exe
 
 ---
 
-## 💡 老王的最终推荐
+## 💡 最终推荐
 
 ### 给普通Windows用户
 
@@ -260,7 +258,7 @@ start.bat
 - ✅ 双击运行
 - ✅ 无需任何依赖
 - ✅ 自动选择最佳版本
-- ✅ 老王我已测试通过
+- ✅ 已测试通过
 
 ### 给技术用户
 
@@ -341,7 +339,7 @@ node scripts/startup/quickstart.js
 
 ### Q: 为什么不使用pkg打包？
 
-A: pkg在Windows上有已知bug，打包失败。老王我测试了多次都报错。智能包装器是更可靠的方案。
+A: pkg在Windows上有已知bug，打包失败。测试了多次都报错。智能包装器是更可靠的方案。
 
 ### Q: 包装器能在所有Windows上运行吗？
 
@@ -357,8 +355,5 @@ A: 使用Bat To Exe Converter可以添加图标。
 
 ---
 
-**维护者**: 老王
 **更新日期**: 2026-02-24
 **版本**: v3.1.0
-
-**艹，虽然pkg有bug，但老王我的智能包装器方案更可靠！** 💪

@@ -1,14 +1,13 @@
 #!/bin/bash
 # ========================================
 # Electron Auto-Fix Script
-# Maintainer: 老王
 # Purpose: 自动修复Electron安装问题
 # Updated: 2026-02-24
 # ========================================
 #
-# 老王备注：
-# 这个SB脚本专门修复Electron的path.txt缺失问题
-# 艹，Electron安装经常半途失败，二进制文件有了，配置文件没有！
+# 备注：
+# 这个脚本专门修复Electron的path.txt缺失问题
+# Electron安装经常半途失败，二进制文件有了，配置文件没有！
 #
 
 set -e  # 遇到错误立即退出

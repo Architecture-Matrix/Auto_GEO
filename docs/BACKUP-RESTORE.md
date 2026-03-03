@@ -1,7 +1,5 @@
 # AutoGeo 数据备份与恢复
 
-> **老王备注**: 数据备份是生产环境的必需品，别等数据丢了才后悔！
-
 ## 备份策略
 
 ### 数据位置
@@ -156,7 +154,7 @@ rsync -avz --delete ~/autogeo/ backup-user@backup-server:/backups/autogeo/
 
 ---
 
-**老王建议**:
+**建议**:
 1. ✅ 每天自动备份（cron）
 2. ✅ 重大操作前手动备份
 3. ✅ 定期验证备份可用性

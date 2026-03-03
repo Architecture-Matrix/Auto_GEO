@@ -1,15 +1,8 @@
 # ========================================
 # Startup Validation CI/CD
-# Maintainer: 老王
 # Purpose: 验证clone后能否正常启动前后端
 # Updated: 2026-02-25
 # ========================================
-#
-# 老王备注：
-# 这个SB工作流专门用来验证clone仓库后能否正常启动
-# 每次push和PR都会跑，确保不会有人clone下来就启动不了
-# 艹，这种SB问题老王我见多了！
-#
 
 name: Startup Validation
 
@@ -153,11 +146,11 @@ jobs:
       - name: Install dependencies
         working-directory: ./frontend
         env:
-          # 老王备注（2026-02-25）：配置Electron国内镜像加速下载
+          # 配置Electron国内镜像加速下载
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
         run: npm install
 
-      # 老王备注：验证Electron二进制文件是否存在
+      # 验证Electron二进制文件是否存在
       - name: Verify Electron binary exists
         working-directory: ./frontend
         shell: bash
@@ -171,7 +164,7 @@ jobs:
           if [ ! -f "$ELECTRON_BIN" ]; then
             echo "❌ Electron binary not found at: $ELECTRON_BIN"
             echo "Trying to reinstall Electron..."
-            # 老王备注：重新安装Electron（会使用镜像）
+            # 重新安装Electron（会使用镜像）
             npm rebuild electron
           fi
 
@@ -239,8 +232,6 @@ jobs:
         run: |
           test -f "out/electron/main/index.js"
 
-      # 老王备注（2026-02-25）：GitHub Actions runner是无GUI环境，无法启动Electron窗口
-      # 所以只验证构建输出和二进制文件存在，不尝试启动Electron
       - name: Final build validation
         working-directory: ./frontend
         shell: bash
@@ -256,19 +247,21 @@ jobs:
   dependency-check:
     name: 📦 Dependency Validation
     runs-on: ubuntu-latest
-    # 老王备注（2026-02-25）：dependency-review-action只在PR时运行，tag推送会报错
+    # dependency-review-action只在PR时运行，tag推送会报错
     if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 老王备注（2026-02-25）：添加前端依赖安全检查（仅PR时）
+      # 允许dependency review失败（因为仓库未启用Dependency Graph）
+      # 如果需要启用此功能，请到仓库Settings > Security > Dependency analysis启用
       - name: Frontend Dependency Review
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-3.0, AGPL-3.0
+        continue-on-error: true  # 允许失败
 
       - name: Check backend dependencies
         working-directory: ./backend
@@ -279,7 +272,7 @@ jobs:
           fi
           echo "✅ Backend dependencies file exists"
 
-      # 老王备注（2026-02-25）：添加后端pip-audit安全检查
+      # 添加后端pip-audit安全检查
       - name: Backend Security Audit
         working-directory: ./backend
         run: |

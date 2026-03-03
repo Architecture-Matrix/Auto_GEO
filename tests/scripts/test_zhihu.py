@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 知乎发布功能诊断脚本 V2
-老王修复了localStorage的SB问题！
 """
 
 import asyncio

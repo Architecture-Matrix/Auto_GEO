@@ -73,6 +73,26 @@ export function useWebSocket(url?: string) {
     return on('auth_complete', callback)
   }
 
+  // 订阅自动发布任务进度
+  const onAutoPublishProgress = (callback: (data: {
+    taskId: number
+    recordId: number
+    articleId: number
+    articleTitle: string
+    accountId: number
+    accountName: string
+    platform: string
+    platformName: string
+    status: string
+    platformUrl?: string
+    errorMsg?: string
+    completedCount: number
+    failedCount: number
+    totalCount: number
+  }) => void) => {
+    return on('auto_publish_progress', callback)
+  }
+
   // 清理
   onUnmounted(() => {
     disconnect()
@@ -87,5 +107,6 @@ export function useWebSocket(url?: string) {
     onPublishProgress,
     onPublishComplete,
     onAuthComplete,
+    onAutoPublishProgress,
   }
 }
