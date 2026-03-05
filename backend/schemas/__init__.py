@@ -278,6 +278,7 @@ class AutoPublishTaskCreate(BaseModel):
     )
     scheduled_at: Optional[str] = Field(None, description="定时执行时间（ISO格式）")
     interval_minutes: Optional[int] = Field(None, ge=1, description="间隔执行分钟数")
+    declare_ai_content: bool = Field(True, description="是否勾选AI创作内容声明")
 
 
 class AutoPublishTaskUpdate(BaseModel):
@@ -302,6 +303,7 @@ class AutoPublishTaskResponse(BaseModel):
     exec_type: str
     scheduled_at: Optional[datetime] = None
     interval_minutes: Optional[int] = None
+    declare_ai_content: bool = True
     total_count: int
     completed_count: int
     failed_count: int

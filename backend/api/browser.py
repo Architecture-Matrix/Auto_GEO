@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/browser", tags=["本地浏览器"])
 
 class BrowserStartRequest(BaseModel):
     """浏览器启动请求"""
+
     headless: bool = False
     use_cdp: bool = True
     cdp_port: int = 9222
@@ -23,6 +24,7 @@ class BrowserStartRequest(BaseModel):
 
 class TaskRequest(BaseModel):
     """任务执行请求"""
+
     task_type: str  # 'auth', 'publish', 'check'
     params: Dict[str, Any]
 
@@ -39,10 +41,7 @@ async def get_browser_status() -> Dict[str, Any]:
     - chrome_found: 是否找到Chrome
     """
     status = local_browser_bridge.get_status()
-    return {
-        "success": True,
-        "status": status
-    }
+    return {"success": True, "status": status}
 
 
 @router.post("/start")
@@ -56,9 +55,7 @@ async def start_browser(request: BrowserStartRequest) -> Dict[str, Any]:
     - cdp_port: CDP端口（默认9222）
     """
     result = await local_browser_bridge.start(
-        headless=request.headless,
-        use_cdp=request.use_cdp,
-        cdp_port=request.cdp_port
+        headless=request.headless, use_cdp=request.use_cdp, cdp_port=request.cdp_port
     )
 
     if result["success"]:
@@ -76,16 +73,12 @@ async def stop_browser() -> Dict[str, Any]:
     """
     success = await local_browser_bridge.stop()
 
-    return {
-        "success": success,
-        "message": "浏览器已停止" if success else "停止失败"
-    }
+    return {"success": success, "message": "浏览器已停止" if success else "停止失败"}
 
 
 @router.post("/context/create")
 async def create_context(
-    storage_state: Optional[Dict[str, Any]] = None,
-    context_id: Optional[str] = None
+    storage_state: Optional[Dict[str, Any]] = None, context_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     创建浏览器上下文
@@ -98,16 +91,9 @@ async def create_context(
         raise HTTPException(status_code=400, detail="浏览器未运行")
 
     try:
-        context = await local_browser_bridge.create_context(
-            storage_state=storage_state,
-            context_id=context_id
-        )
+        context = await local_browser_bridge.create_context(storage_state=storage_state, context_id=context_id)
 
-        return {
-            "success": True,
-            "context_id": context_id,
-            "message": "上下文创建成功"
-        }
+        return {"success": True, "context_id": context_id, "message": "上下文创建成功"}
     except Exception as e:
         logger.error(f"创建上下文失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -130,10 +116,7 @@ async def get_storage_state(context_id: str) -> Dict[str, Any]:
         if state is None:
             raise HTTPException(status_code=404, detail="上下文不存在")
 
-        return {
-            "success": True,
-            "storage_state": state
-        }
+        return {"success": True, "storage_state": state}
     except HTTPException:
         raise
     except Exception as e:
@@ -161,10 +144,7 @@ async def execute_task(request: TaskRequest) -> Dict[str, Any]:
     # 这里根据task_type分发到不同的处理器
     # 实际实现需要进一步设计任务分发机制
 
-    return {
-        "success": True,
-        "message": f"任务 {request.task_type} 已接收"
-    }
+    return {"success": True, "message": f"任务 {request.task_type} 已接收"}
 
 
 @router.get("/health")
@@ -177,5 +157,5 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy" if status["is_running"] else "stopped",
         "chrome_available": status["chrome_found"],
-        "cdp_enabled": status["cdp_url"] is not None
+        "cdp_enabled": status["cdp_url"] is not None,
     }

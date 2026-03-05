@@ -39,7 +39,7 @@ class BaijiahaoPublisher(BasePublisher):
     6. 强容错: 图片失败不影响正文和标题发布
     """
 
-    async def publish(self, page: Page, article: Any, account: Any) -> Dict[str, Any]:
+    async def publish(self, page: Page, article: Any, account: Any, declare_ai_content: bool = True) -> Dict[str, Any]:
         temp_files = []
         try:
             logger.info("🚀 [百家号] 开始执行 v17.0 切片插入发布流程...")

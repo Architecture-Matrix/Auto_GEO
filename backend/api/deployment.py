@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/deployment", tags=["部署配置"])
 
 class HeadlessRequest(BaseModel):
     """Headless模式请求"""
+
     operation_type: str = "default"  # auth, publish, check, default
 
 
@@ -44,10 +45,7 @@ async def get_deployment_config() -> Dict[str, Any]:
     # 添加任务分发器状态
     config["dispatcher_status"] = task_dispatcher.get_status()
 
-    return {
-        "success": True,
-        "config": config
-    }
+    return {"success": True, "config": config}
 
 
 @router.post("/headless/check")
@@ -67,12 +65,7 @@ async def check_headless_mode(request: HeadlessRequest) -> Dict[str, Any]:
 
     reason = _get_headless_reason(operation, headless)
 
-    return {
-        "success": True,
-        "operation": operation,
-        "headless": headless,
-        "reason": reason
-    }
+    return {"success": True, "operation": operation, "headless": headless, "reason": reason}
 
 
 @router.get("/modes")
@@ -91,7 +84,7 @@ async def list_deployment_modes() -> Dict[str, Any]:
                 "scenarios": ["开发环境", "调试阶段", "需要手动登录"],
                 "browser": "有GUI显示",
                 "auth": "本地手动登录",
-                "tasks": "本地浏览器执行"
+                "tasks": "本地浏览器执行",
             },
             "cloud": {
                 "name": "云端模式",
@@ -100,7 +93,7 @@ async def list_deployment_modes() -> Dict[str, Any]:
                 "browser": "headless模式",
                 "auth": "需要预先获取会话",
                 "tasks": "服务器自动执行",
-                "note": "Linux环境需要安装xvfb"
+                "note": "Linux环境需要安装xvfb",
             },
             "hybrid": {
                 "name": "混合模式（推荐）",
@@ -108,10 +101,10 @@ async def list_deployment_modes() -> Dict[str, Any]:
                 "scenarios": ["生产环境", "需要手动授权", "自动化执行"],
                 "browser": "授权时本地，任务时云端",
                 "auth": "本地客户端手动登录",
-                "tasks": "服务器自动执行（使用已保存会话）"
-            }
+                "tasks": "服务器自动执行（使用已保存会话）",
+            },
         },
-        "current": get_deployment_info()["deployment_mode"]
+        "current": get_deployment_info()["deployment_mode"],
     }
 
 
@@ -122,10 +115,7 @@ async def print_deployment_config() -> Dict[str, Any]:
     """
     log_deployment_config()
 
-    return {
-        "success": True,
-        "message": "配置已打印到日志"
-    }
+    return {"success": True, "message": "配置已打印到日志"}
 
 
 @router.get("/task-location/{task_type}")
@@ -144,12 +134,7 @@ async def get_task_location(task_type: str) -> Dict[str, Any]:
 
     reason = _get_location_reason(task_type, location.value)
 
-    return {
-        "success": True,
-        "task_type": task_type,
-        "location": location.value,
-        "reason": reason
-    }
+    return {"success": True, "task_type": task_type, "location": location.value, "reason": reason}
 
 
 def _get_headless_reason(operation: str, headless: bool) -> str:

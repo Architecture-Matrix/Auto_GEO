@@ -5,6 +5,7 @@ GEO文章管理 API - 工业加固版
 """
 
 import asyncio
+import json
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
@@ -19,6 +20,62 @@ from backend.schemas import ApiResponse
 from loguru import logger
 
 router = APIRouter(prefix="/api/geo", tags=["GEO文章"])
+
+
+# ==================== 辅助函数 ====================
+
+
+def _convert_article_to_dict(article: GeoArticle) -> dict:
+    """
+    将GeoArticle模型转换为字典，处理target_platforms和datetime类型转换
+    修复Pydantic验证错误：target_platforms字符串需要转换为列表
+    """
+    # 处理target_platforms字段
+    target_platforms = None
+    if article.target_platforms is not None:
+        if isinstance(article.target_platforms, str):
+            try:
+                target_platforms = json.loads(article.target_platforms)
+            except:
+                target_platforms = [article.target_platforms] if article.target_platforms else []
+        elif isinstance(article.target_platforms, list):
+            target_platforms = article.target_platforms
+        else:
+            target_platforms = []
+
+    # 处理datetime字段
+    def dt_to_str(dt):
+        if dt is None:
+            return None
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return str(dt)
+
+    return {
+        "id": article.id,
+        "keyword_id": article.keyword_id,
+        "title": article.title,
+        "content": article.content,
+        "quality_status": article.quality_status,
+        "publish_status": article.publish_status,
+        "index_status": article.index_status,
+        "platform": article.platform,
+        "account_id": article.account_id,
+        "target_platforms": target_platforms,
+        "publish_strategy": article.publish_strategy,
+        "quality_score": article.quality_score,
+        "ai_score": article.ai_score,
+        "readability_score": article.readability_score,
+        "retry_count": article.retry_count,
+        "error_msg": article.error_msg,
+        "publish_logs": article.publish_logs,
+        "platform_url": article.platform_url,
+        "index_details": article.index_details,
+        "publish_time": dt_to_str(article.publish_time),
+        "scheduled_at": dt_to_str(article.scheduled_at),
+        "last_check_time": dt_to_str(article.last_check_time),
+        "created_at": dt_to_str(article.created_at),
+    }
 
 
 # ==================== 请求/响应模型 ====================
@@ -160,7 +217,7 @@ async def generate_article(request: GenerateArticleRequest, background_tasks: Ba
     return ApiResponse(success=True, message="生成任务已提交，请在列表查看进度")
 
 
-@router.get("/articles", response_model=List[ArticleResponse])
+@router.get("/articles")
 async def list_articles(
     project_id: Optional[int] = Query(None, description="项目ID筛选"),
     limit: int = Query(100),
@@ -203,7 +260,8 @@ async def list_articles(
         query = query.limit(limit)
 
     articles = query.all()
-    return articles
+    # 手动转换数据类型，修复Pydantic验证错误
+    return [_convert_article_to_dict(article) for article in articles]
 
 
 @router.post("/articles/{article_id}/check-quality", response_model=ApiResponse)

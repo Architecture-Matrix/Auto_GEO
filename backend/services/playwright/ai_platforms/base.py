@@ -190,8 +190,8 @@ class AIPlatformChecker(ABC):
 
             if has_login:
                 self._log("info", "检测到登录页面，请手动完成登录")
-                # 给用户30秒时间完成登录
-                await asyncio.sleep(30)
+                # 修复：给用户90秒时间完成登录（原来30秒不够）
+                await asyncio.sleep(90)
                 # 重新等待页面稳定
                 await page.wait_for_load_state("domcontentloaded", timeout=30000)
 
@@ -277,7 +277,7 @@ class AIPlatformChecker(ABC):
             self._log("warning", f"等待选择器超时或失败: {e}, 耗时: {elapsed_time:.0f}ms")
 
             # 最后的兜底策略：查找任意可见的 textarea 或 contenteditable
-            # 这可以解决因页面更新导致特定选择器失效的问题
+            # 修复：增加更多通用选择器，提高成功率
             try:
                 self._log("info", "尝试兜底策略：查找页面上任意可见的输入框")
                 fallback_selector = await page.evaluate("""() => {
@@ -299,7 +299,7 @@ class AIPlatformChecker(ABC):
                             return getSelector(el);
                         }
                     }
-                    
+
                     // 2. 查找 contenteditable
                     const editables = Array.from(document.querySelectorAll('[contenteditable="true"]'));
                     for (const el of editables) {
@@ -308,6 +308,25 @@ class AIPlatformChecker(ABC):
                             return getSelector(el);
                         }
                     }
+
+                    // 3. 查找 input[type=text]
+                    const textInputs = Array.from(document.querySelectorAll('input[type="text"]'));
+                    for (const el of textInputs) {
+                        const style = window.getComputedStyle(el);
+                        if (style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null) {
+                            return getSelector(el);
+                        }
+                    }
+
+                    // 4. 查找带 placeholder 的元素
+                    const withPlaceholder = Array.from(document.querySelectorAll('[placeholder*="输入"], [placeholder*="提问"], [placeholder*="发送"]'));
+                    for (const el of withPlaceholder) {
+                        const style = window.getComputedStyle(el);
+                        if (style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null) {
+                            return getSelector(el);
+                        }
+                    }
+
                     return null;
                 }""")
 

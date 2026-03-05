@@ -20,7 +20,7 @@ class CDPBrowserManager:
     本地浏览器由Electron端启动，通过内网穿透暴露到公网
     """
 
-    _instance: Optional['CDPBrowserManager'] = None
+    _instance: Optional["CDPBrowserManager"] = None
     _browser: Optional[Browser] = None
     _contexts: Dict[str, BrowserContext] = {}
 

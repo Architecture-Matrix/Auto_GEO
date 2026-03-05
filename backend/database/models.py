@@ -5,7 +5,7 @@
 """
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, func, ForeignKey, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from backend.database import Base
 from datetime import datetime
 
@@ -581,6 +581,9 @@ class AutoPublishTask(Base):
     article_ids = Column(JSON, nullable=False, comment="文章ID列表 [1,2,3]")
     account_ids = Column(JSON, nullable=False, comment="账号ID列表 [1,2,3]")
 
+    # 发布选项
+    declare_ai_content = Column(Boolean, default=True, comment="是否勾选AI创作内容声明")
+
     # 任务状态
     status = Column(
         String(20),
@@ -613,6 +616,11 @@ class AutoPublishTask(Base):
     # 时间戳
     created_at = Column(DateTime, default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), comment="更新时间")
+
+    # 关联关系：一对多，级联删除子记录
+    records = relationship(
+        "AutoPublishRecord", back_populates="task", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     def __repr__(self):
         return f"<AutoPublishTask {self.name} status={self.status}>"
@@ -667,7 +675,8 @@ class AutoPublishRecord(Base):
     completed_at = Column(DateTime, nullable=True, comment="完成时间")
 
     # 关联关系
-    task = relationship("AutoPublishTask", backref="records")
+    # 艹！级联删除配置：删除任务时自动删除关联的发布记录
+    task = relationship("AutoPublishTask", back_populates="records")
     article = relationship("GeoArticle")
     account = relationship("Account")
 

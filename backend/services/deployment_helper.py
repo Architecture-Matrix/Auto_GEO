@@ -81,7 +81,7 @@ def _get_deployment_description() -> str:
     descriptions = {
         "local": "本地模式：所有浏览器操作在本地执行，适合开发和调试",
         "cloud": "云端模式：所有浏览器操作在服务器执行（headless），适合已登录场景",
-        "hybrid": "混合模式：授权操作在本地，自动化任务在云端，兼顾灵活性和效率"
+        "hybrid": "混合模式：授权操作在本地，自动化任务在云端，兼顾灵活性和效率",
     }
     return descriptions.get(DEPLOYMENT_MODE, "未知模式")
 

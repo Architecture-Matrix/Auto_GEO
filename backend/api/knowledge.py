@@ -6,7 +6,7 @@
 
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -524,6 +524,91 @@ async def create_knowledge(data: KnowledgeCreate, db: Session = Depends(get_db))
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/knowledge/upload", response_model=ApiResponse)
+async def upload_knowledge_file(
+    category_id: int = Form(...),
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    type: Optional[str] = Form("other"),
+    db: Session = Depends(get_db),
+):
+    """
+    上传文件到知识库（支持PDF、Word、Excel等格式）
+
+    Args:
+        category_id: 分类ID
+        file: 上传的文件
+        title: 自定义标题（可选，默认使用文件名）
+        type: 知识类型
+        db: 数据库会话
+
+    Returns:
+        创建结果
+    """
+    from backend.services.ragflow_client import get_ragflow_client
+
+    try:
+        # 1. 获取分类的RAGFlow知识库ID
+        category = db.query(KnowledgeCategory).filter(KnowledgeCategory.id == category_id).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="分类不存在")
+
+        if not category.ragflow_dataset_id:
+            raise HTTPException(status_code=400, detail="分类未关联RAGFlow知识库")
+
+        # 2. 读取上传的文件内容
+        file_content = await file.read()
+        file_name = title or file.filename
+
+        # 3. 在RAGFlow上传文件
+        ragflow_client = get_ragflow_client()
+        ragflow_result = ragflow_client.upload_document_bytes(
+            dataset_id=category.ragflow_dataset_id,
+            file_content=file_content,
+            file_name=file_name,
+        )
+
+        if ragflow_result.get("code") != 0:
+            raise HTTPException(status_code=500, detail=f"RAGFlow上传失败: {ragflow_result.get('message')}")
+
+        docs = ragflow_result.get("data", [])
+        if not docs:
+            raise HTTPException(status_code=500, detail="RAGFlow返回的文档列表为空")
+
+        doc_id = docs[0].get("id")
+        if not doc_id:
+            raise HTTPException(status_code=500, detail="RAGFlow返回的文档ID为空")
+
+        # 4. 在SQLite创建缓存记录
+        knowledge = Knowledge(
+            ragflow_document_id=doc_id,
+            ragflow_dataset_id=category.ragflow_dataset_id,
+            category_id=category_id,
+            title=file_name,
+            content=f"文件: {file_name}",  # 保存文件名作为摘要
+            type=type,
+            sync_status="synced",
+            last_sync_at=datetime.now(),
+        )
+        db.add(knowledge)
+        db.commit()
+        db.refresh(knowledge)
+
+        logger.info(f"文件上传成功（RAGFlow ID: {doc_id}）: {file_name}")
+
+        return ApiResponse(
+            success=True,
+            data={"id": knowledge.id, "ragflow_document_id": doc_id, "file_name": file_name},
+            message="文件上传成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"文件上传失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/knowledge/{knowledge_id}", response_model=ApiResponse)
 async def update_knowledge(knowledge_id: int, data: KnowledgeUpdate, db: Session = Depends(get_db)):
     """
@@ -822,4 +907,184 @@ async def semantic_search(
         raise
     except Exception as e:
         logger.error(f"语义搜索失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/extract-info", response_model=ApiResponse)
+async def extract_document_info(
+    knowledge_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    从知识库文档中提取客户信息
+
+    使用AI从上传的文档中自动提取客户信息：
+    - 公司名称
+    - 联系人
+    - 电话
+    - 邮箱
+    - 行业
+    - 地址
+    - 业务描述
+
+    Args:
+        knowledge_id: 知识ID
+        db: 数据库会话
+
+    Returns:
+        提取的客户信息
+    """
+    try:
+        from backend.services.document_extractor import get_document_extractor
+        from backend.services.ragflow_client import get_ragflow_client
+
+        # 1. 获取知识记录
+        knowledge = db.query(Knowledge).filter(Knowledge.id == knowledge_id).first()
+        if not knowledge:
+            raise HTTPException(status_code=404, detail="知识不存在")
+
+        # 2. 从RAGFlow提取文档信息
+        ragflow_client = get_ragflow_client()
+        extractor = get_document_extractor()
+
+        extracted_info = extractor.extract_from_ragflow_document(
+            dataset_id=knowledge.ragflow_dataset_id,
+            document_id=knowledge.ragflow_document_id,
+            ragflow_client=ragflow_client,
+        )
+
+        if not extracted_info:
+            return ApiResponse(
+                success=False,
+                data={},
+                message="未能从文档中提取到客户信息，请确认文档内容包含相关信息",
+            )
+
+        # 3. 尝试自动创建或更新客户记录
+        client_data = {}
+        if extracted_info.get("company_name"):
+            # 查找是否已存在该公司
+            from backend.database.models import Client
+
+            existing_client = (
+                db.query(Client)
+                .filter(
+                    (Client.company_name == extracted_info["company_name"])
+                    | (Client.name == extracted_info["company_name"])
+                )
+                .first()
+            )
+
+            if existing_client:
+                # 更新现有客户信息
+                if extracted_info.get("contact_person"):
+                    existing_client.contact_person = extracted_info["contact_person"]
+                if extracted_info.get("phone"):
+                    existing_client.phone = extracted_info["phone"]
+                if extracted_info.get("email"):
+                    existing_client.email = extracted_info["email"]
+                if extracted_info.get("industry"):
+                    existing_client.industry = extracted_info["industry"]
+                if extracted_info.get("address"):
+                    existing_client.address = extracted_info["address"]
+                if extracted_info.get("description"):
+                    existing_client.description = extracted_info["description"]
+
+                db.commit()
+                client_data = {
+                    "client_id": existing_client.id,
+                    "name": existing_client.name,
+                    "company_name": existing_client.company_name,
+                }
+                logger.info(f"已更新客户信息: {existing_client.name}")
+            else:
+                # 创建新客户
+                new_client = Client(
+                    name=extracted_info.get("company_name", "未知客户")[:200],
+                    company_name=extracted_info.get("company_name"),
+                    contact_person=extracted_info.get("contact_person"),
+                    phone=extracted_info.get("phone"),
+                    email=extracted_info.get("email"),
+                    industry=extracted_info.get("industry"),
+                    address=extracted_info.get("address"),
+                    description=extracted_info.get("description"),
+                    status=1,
+                )
+                db.add(new_client)
+                db.commit()
+                db.refresh(new_client)
+
+                client_data = {
+                    "client_id": new_client.id,
+                    "name": new_client.name,
+                    "company_name": new_client.company_name,
+                }
+                logger.info(f"已创建新客户: {new_client.name}")
+
+        return ApiResponse(
+            success=True,
+            data={
+                "extracted_info": extracted_info,
+                "client": client_data if client_data else None,
+            },
+            message="信息提取成功"
+            + (
+                f"，已{'更新' if client_data.get('client_id') and existing_client else '创建'}客户记录"
+                if client_data
+                else ""
+            ),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"提取文档信息失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/extract-info-from-text", response_model=ApiResponse)
+async def extract_info_from_text(
+    text: str,
+    db: Session = Depends(get_db),
+):
+    """
+    从文本中提取客户信息（直接文本输入）
+
+    用于用户直接粘贴文本内容进行信息提取
+
+    Args:
+        text: 文本内容
+        db: 数据库会话
+
+    Returns:
+        提取的客户信息
+    """
+    try:
+        from backend.services.document_extractor import get_document_extractor
+
+        if not text or not text.strip():
+            raise HTTPException(status_code=400, detail="文本内容不能为空")
+
+        # 使用AI提取客户信息
+        extractor = get_document_extractor()
+        extracted_info = extractor.extract_from_text(text)
+
+        if not extracted_info:
+            return ApiResponse(
+                success=False,
+                data={},
+                message="未能从文本中提取到客户信息",
+            )
+
+        return ApiResponse(
+            success=True,
+            data={"extracted_info": extracted_info},
+            message="信息提取成功",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"从文本提取信息失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -36,6 +36,8 @@ import backend.api.site_builder as site_builder
 import backend.api.upload as upload
 import backend.api.client as client  # 客户管理
 import backend.api.auto_publish as auto_publish  # 自动发布任务
+import backend.api.browser as browser  # 本地浏览器桥接
+import backend.api.deployment as deployment  # 部署配置
 
 # 导入服务组件
 from backend.services.websocket_manager import ws_manager
@@ -179,6 +181,8 @@ app.include_router(auth.router)
 app.include_router(article_collection.router)
 app.include_router(site_builder.router)
 app.include_router(auto_publish.router)  # 自动发布任务管理
+app.include_router(browser.router)  # 本地浏览器桥接
+app.include_router(deployment.router)  # 部署配置
 
 
 # ==================== WebSocket 端点 ====================
@@ -231,7 +235,8 @@ async def global_exception_handler(request, exc):
 
 # ==================== 启动脚本 ====================
 if __name__ == "__main__":
-    # Windows 下异步策略优化
+    # 艹！Windows下必须用ProactorEventLoop才能支持Playwright的subprocess
+    # SelectorEventLoop在Windows下不支持subprocess，会导致NotImplementedError
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 

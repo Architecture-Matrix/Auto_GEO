@@ -49,26 +49,20 @@ class ZhihuPublisher(BasePublisher):
         one_day_ago = now - timedelta(days=1)
 
         # 清理超过24天的历史记录（避免内存泄漏）
-        self._publish_history = [
-            t for t in self._publish_history
-            if t > now - timedelta(days=7)
-        ]
+        self._publish_history = [t for t in self._publish_history if t > now - timedelta(days=7)]
 
         # 检查过去1小时的发布次数
         count_last_hour = len([t for t in self._publish_history if t > one_hour_ago])
         if count_last_hour >= self.MAX_PER_HOUR:
             return {
                 "allowed": False,
-                "reason": f"过去1小时已发布{count_last_hour}次，超过限制{self.MAX_PER_HOUR}次/小时"
+                "reason": f"过去1小时已发布{count_last_hour}次，超过限制{self.MAX_PER_HOUR}次/小时",
             }
 
         # 检查过去24小时的发布次数
         count_last_day = len([t for t in self._publish_history if t > one_day_ago])
         if count_last_day >= self.MAX_PER_DAY:
-            return {
-                "allowed": False,
-                "reason": f"过去24小时已发布{count_last_day}次，超过限制{self.MAX_PER_DAY}次/天"
-            }
+            return {"allowed": False, "reason": f"过去24小时已发布{count_last_day}次，超过限制{self.MAX_PER_DAY}次/天"}
 
         # 检查距离上次发布的间隔
         if self._publish_history:
@@ -77,7 +71,7 @@ class ZhihuPublisher(BasePublisher):
             if minutes_since_last < self.MIN_INTERVAL_MINUTES:
                 return {
                     "allowed": False,
-                    "reason": f"距离上次发布仅{int(minutes_since_last)}分钟，需要至少{self.MIN_INTERVAL_MINUTES}分钟间隔"
+                    "reason": f"距离上次发布仅{int(minutes_since_last)}分钟，需要至少{self.MIN_INTERVAL_MINUTES}分钟间隔",
                 }
 
         return {"allowed": True, "reason": "频率检查通过"}
@@ -191,10 +185,7 @@ class ZhihuPublisher(BasePublisher):
             rate_limit_check = self._check_rate_limit()
             if not rate_limit_check["allowed"]:
                 logger.warning(f"⚠️ 发布频率限制: {rate_limit_check['reason']}")
-                return {
-                    "success": False,
-                    "error_msg": f"发布频率限制: {rate_limit_check['reason']}"
-                }
+                return {"success": False, "error_msg": f"发布频率限制: {rate_limit_check['reason']}"}
             logger.success(f"✅ 频率检查通过: {rate_limit_check['reason']}")
 
             # 1. 导航
@@ -287,11 +278,11 @@ class ZhihuPublisher(BasePublisher):
                 url = original_url
 
                 # 处理本地图片路径
-                if original_url.startswith('/static/uploads/'):
+                if original_url.startswith("/static/uploads/"):
                     # 从后端获取本地图片
                     url = f"{backend_base_url}{original_url}"
                     logger.info(f"📷 本地图片，从后端获取: {url}")
-                elif original_url.startswith('/'):
+                elif original_url.startswith("/"):
                     logger.warning(f"⚠️ 跳过其他本地路径: {original_url}")
                     continue
 
@@ -323,7 +314,9 @@ class ZhihuPublisher(BasePublisher):
 
             # 1. 尝试 pollinations.ai (AI生成图片)
             encoded_keyword = urllib.parse.quote(keyword)
-            fallback_urls.append(f"https://image.pollinations.ai/prompt/{encoded_keyword}%20seed%20{seed}?width=1200&height=630&nologo=true")
+            fallback_urls.append(
+                f"https://image.pollinations.ai/prompt/{encoded_keyword}%20seed%20{seed}?width=1200&height=630&nologo=true"
+            )
 
             # 2. 尝试 Picsum（随机图片）
             fallback_urls.append(f"https://picsum.photos/1200/630?random={seed}")
@@ -332,18 +325,24 @@ class ZhihuPublisher(BasePublisher):
             for idx, fallback_url in enumerate(fallback_urls, 1):
                 try:
                     logger.info(f"🔄 尝试备用源 {idx}/{len(fallback_urls)}: {fallback_url[:70]}...")
-                    async with httpx.AsyncClient(headers=headers, verify=False, follow_redirects=True, timeout=30.0) as client:
+                    async with httpx.AsyncClient(
+                        headers=headers, verify=False, follow_redirects=True, timeout=30.0
+                    ) as client:
                         resp = await client.get(fallback_url)
 
                         if resp.status_code == 200 and len(resp.content) > 1000:
-                            tmp_path = os.path.join(tempfile.gettempdir(), f"zh_v44_fallback_{random.randint(1000, 9999)}.jpg")
+                            tmp_path = os.path.join(
+                                tempfile.gettempdir(), f"zh_v44_fallback_{random.randint(1000, 9999)}.jpg"
+                            )
                             with open(tmp_path, "wb") as f:
                                 f.write(resp.content)
                             paths.append(tmp_path)
                             logger.success(f"✅ 备用源 {idx} 成功: {len(resp.content)} bytes")
                             break
                         else:
-                            logger.warning(f"⚠️ 备用源 {idx} 失败: status={resp.status_code}, size={len(resp.content) if resp.content else 0}")
+                            logger.warning(
+                                f"⚠️ 备用源 {idx} 失败: status={resp.status_code}, size={len(resp.content) if resp.content else 0}"
+                            )
                 except Exception as e:
                     logger.warning(f"⚠️ 备用源 {idx} 异常: {e}")
 
@@ -510,7 +509,7 @@ class ZhihuPublisher(BasePublisher):
                 publish_btn_selectors = [
                     "button.PublishPanel-submitButton",
                     ".WriteIndex-publishButton",
-                    "button:has-text('发布')"
+                    "button:has-text('发布')",
                 ]
 
                 publish_btn = None
@@ -537,7 +536,9 @@ class ZhihuPublisher(BasePublisher):
                 # 【新增】检测限流警告（优先级最高！）
                 try:
                     # 检查是否有alert弹窗（限流警告）
-                    alert_locator = page.locator("generic:has-text('近期发布频率过高'), generic:has-text('请24小时后重试'), generic:has-text('发布频率过高')").first
+                    alert_locator = page.locator(
+                        "generic:has-text('近期发布频率过高'), generic:has-text('请24小时后重试'), generic:has-text('发布频率过高')"
+                    ).first
                     if await alert_locator.is_visible(timeout=2000):
                         error_text = await alert_locator.inner_text()
                         logger.error(f"❌ 检测到知乎限流警告: {error_text}")
@@ -606,7 +607,7 @@ class ZhihuPublisher(BasePublisher):
         logger.info("⏳ 等待发布结果...")
         for i in range(60):  # 增加到60秒
             current_url = page.url
-            logger.debug(f"第{i+1}秒，当前URL: {current_url}")
+            logger.debug(f"第{i + 1}秒，当前URL: {current_url}")
 
             # 检查URL中是否包含文章ID（/p/数字格式）
             # 编辑模式 /p/xxx/edit 也算发布成功，说明文章已创建
@@ -652,5 +653,10 @@ class ZhihuPublisher(BasePublisher):
 
 
 # 注册
-ZHIHU_CONFIG = {"name": "知乎", "publish_url": "https://zhuanlan.zhihu.com/write", "color": "#0084FF", "version": "v4.5"}
+ZHIHU_CONFIG = {
+    "name": "知乎",
+    "publish_url": "https://zhuanlan.zhihu.com/write",
+    "color": "#0084FF",
+    "version": "v4.5",
+}
 registry.register("zhihu", ZhihuPublisher("zhihu", ZHIHU_CONFIG))

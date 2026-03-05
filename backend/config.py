@@ -74,7 +74,7 @@ ENCRYPTION_KEY = os.getenv(
 # 部署模式：local(本地), cloud(云端), hybrid(混合)
 DEPLOYMENT_MODE: Literal["local", "cloud", "hybrid"] = os.getenv(
     "DEPLOYMENT_MODE",
-    "local"  # 默认本地模式
+    "local",  # 默认本地模式
 )
 
 # 是否启用headless模式（可通过环境变量覆盖）

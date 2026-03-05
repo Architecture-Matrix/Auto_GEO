@@ -36,7 +36,7 @@ class DouyinPublisher(BasePublisher):
     5. 强容错机制
     """
 
-    async def publish(self, page: Page, article: Any, account: Any) -> Dict[str, Any]:
+    async def publish(self, page: Page, article: Any, account: Any, declare_ai_content: bool = True) -> Dict[str, Any]:
         """发布内容到抖音"""
         temp_files = []
         try:
@@ -123,9 +123,7 @@ class DouyinPublisher(BasePublisher):
         async def _download_single_image(url: str, index: int) -> str:
             try:
                 logger.info(f"📥 正在下载图片 {index + 1}/{count}...")
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                }
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
                 async with httpx.AsyncClient(headers=headers, verify=False, timeout=30.0) as client:
                     resp = await client.get(url, timeout=30.0)
                     if resp.status_code == 200 and len(resp.content) > 1000:
@@ -166,7 +164,7 @@ class DouyinPublisher(BasePublisher):
             mode_selectors = [
                 'button:has-text("图文")',
                 'div:has-text("图文")',
-                '.image-mode-btn',
+                ".image-mode-btn",
             ]
 
             for selector in mode_selectors:
@@ -222,7 +220,7 @@ class DouyinPublisher(BasePublisher):
                 'textarea[placeholder*="添加作品描述"]',
                 'textarea[placeholder*="描述"]',
                 'div[contenteditable="true"]',
-                '.description-input',
+                ".description-input",
             ]
 
             for selector in desc_selectors:
@@ -302,7 +300,7 @@ class DouyinPublisher(BasePublisher):
 
             publish_selectors = [
                 'button:has-text("发布")',
-                'button.publish-btn',
+                "button.publish-btn",
                 'button[type="submit"]',
             ]
 

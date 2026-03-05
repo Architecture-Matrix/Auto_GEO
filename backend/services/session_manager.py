@@ -353,10 +353,11 @@ class SecureSessionManager:
                             # 即使导航超时，也可能已经加载了部分内容，继续检查
 
                         # 等待关键元素出现（输入框或登录按钮）
+                        # 修复：增加超时到30秒，给页面更多加载时间
                         try:
                             await page.wait_for_selector(
                                 "textarea, input[type='text'], [contenteditable='true'], [class*='login'], button",
-                                timeout=15000,
+                                timeout=30000,  # 修复：从15秒增加到30秒
                                 state="visible",
                             )
                         except Exception:

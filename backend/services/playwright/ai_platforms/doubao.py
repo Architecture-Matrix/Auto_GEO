@@ -77,8 +77,8 @@ class DoubaoChecker(AIPlatformChecker):
 
             if has_login:
                 self._log("info", "检测到豆包登录页面，请手动完成登录")
-                # 给用户30秒时间完成登录
-                await asyncio.sleep(30)
+                # 修复：给用户90秒时间完成登录（原来30秒不够）
+                await asyncio.sleep(90)
                 # 重新等待页面稳定
                 await page.wait_for_load_state("domcontentloaded", timeout=30000)
 

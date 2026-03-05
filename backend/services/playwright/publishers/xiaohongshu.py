@@ -37,7 +37,7 @@ class XiaohongshuPublisher(BasePublisher):
     5. 强容错机制
     """
 
-    async def publish(self, page: Page, article: Any, account: Any) -> Dict[str, Any]:
+    async def publish(self, page: Page, article: Any, account: Any, declare_ai_content: bool = True) -> Dict[str, Any]:
         """发布笔记到小红书"""
         temp_files = []
         try:
@@ -133,9 +133,7 @@ class XiaohongshuPublisher(BasePublisher):
         async def _download_single_image(url: str, index: int) -> str:
             try:
                 logger.info(f"📥 正在下载图片 {index + 1}/{count}...")
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                }
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
                 async with httpx.AsyncClient(headers=headers, verify=False, timeout=30.0) as client:
                     resp = await client.get(url, timeout=30.0)
                     if resp.status_code == 200 and len(resp.content) > 1000:
@@ -176,7 +174,7 @@ class XiaohongshuPublisher(BasePublisher):
             title_selectors = [
                 'input[placeholder*="填写标题"]',
                 'input[placeholder*="标题"]',
-                '.title-input',
+                ".title-input",
                 'input[type="text"]',
             ]
 
@@ -201,7 +199,7 @@ class XiaohongshuPublisher(BasePublisher):
                 'div[contenteditable="true"]',
                 'textarea[placeholder*="填写正文"]',
                 'textarea[placeholder*="正文"]',
-                '.content-textarea',
+                ".content-textarea",
             ]
 
             for selector in content_selectors:
@@ -235,7 +233,7 @@ class XiaohongshuPublisher(BasePublisher):
             # 查找封面上传按钮
             upload_selectors = [
                 'input[type="file"]',
-                '.upload-btn',
+                ".upload-btn",
                 'button:has-text("上传封面")',
             ]
 
@@ -285,7 +283,7 @@ class XiaohongshuPublisher(BasePublisher):
                     topic_selectors = [
                         'input[placeholder*="添加话题"]',
                         'input[placeholder*="话题"]',
-                        '.topic-input',
+                        ".topic-input",
                     ]
 
                     for selector in topic_selectors:
@@ -324,7 +322,7 @@ class XiaohongshuPublisher(BasePublisher):
 
             publish_selectors = [
                 'button:has-text("发布")',
-                'button.publish-btn',
+                "button.publish-btn",
                 'button[type="submit"]',
             ]
 

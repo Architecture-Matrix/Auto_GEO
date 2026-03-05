@@ -18,13 +18,14 @@ from typing import Optional, Dict, List, Any, Callable
 # 艹！Windows下必须用ProactorEventLoop支持subprocess，而Playwright需要fork子进程
 # SelectorEventLoop在Windows下不支持subprocess，会报NotImplementedError
 # 必须在导入playwright之前设置事件循环策略，否则这个憨批会报NotImplementedError
-if sys.platform == 'win32':
+if sys.platform == "win32":
     try:
         # Windows需要ProactorEventLoop来支持subprocess
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     except AttributeError:
         # 如果老版本Python不支持，至少记录一下警告
         import warnings
+
         warnings.warn("Python版本过低，Windows ProactorEventLoopPolicy不可用，Playwright可能会失败")
 # ==================== 修复结束 ====================
 
@@ -32,7 +33,15 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from backend.config import BROWSER_TYPE, BROWSER_ARGS, DEFAULT_USER_AGENT, PLATFORMS, LOCAL_BROWSER_URL, LOCAL_BROWSER_CDP_PORT, FORCE_LOCAL_BROWSER
+from backend.config import (
+    BROWSER_TYPE,
+    BROWSER_ARGS,
+    DEFAULT_USER_AGENT,
+    PLATFORMS,
+    LOCAL_BROWSER_URL,
+    LOCAL_BROWSER_CDP_PORT,
+    FORCE_LOCAL_BROWSER,
+)
 from backend.services.crypto import encrypt_cookies, encrypt_storage_state, decrypt_cookies, decrypt_storage_state
 from backend.services.cdp_browser_manager import cdp_browser_manager
 
@@ -143,7 +152,7 @@ class PlaywrightManager:
     async def _start_local(self):
         """在云端启动浏览器（传统模式）"""
         # Windows下必须用ProactorEventLoop支持subprocess
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             try:
                 asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
                 loop = asyncio.get_event_loop()
@@ -972,7 +981,9 @@ class PlaywrightManager:
             page = await context.new_page()
 
             # 执行发布逻辑 (传递AI声明选项)
-            logger.info(f"🚀 [Publish] 开始执行发布: {account.platform} - {article.title}, AI声明: {declare_ai_content}")
+            logger.info(
+                f"🚀 [Publish] 开始执行发布: {account.platform} - {article.title}, AI声明: {declare_ai_content}"
+            )
             result = await publisher.publish(page, article, account, declare_ai_content=declare_ai_content)
 
             return result

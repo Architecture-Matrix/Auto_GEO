@@ -79,12 +79,7 @@ class LocalBrowserBridge:
                 return path
         return None
 
-    async def start(
-        self,
-        headless: bool = False,
-        use_cdp: bool = True,
-        cdp_port: int = 9222
-    ) -> Dict[str, Any]:
+    async def start(self, headless: bool = False, use_cdp: bool = True, cdp_port: int = 9222) -> Dict[str, Any]:
         """
         启动本地浏览器
 
@@ -99,11 +94,7 @@ class LocalBrowserBridge:
         try:
             if self._is_running:
                 logger.warning("浏览器已在运行中")
-                return {
-                    "success": True,
-                    "cdp_url": self._cdp_url,
-                    "message": "浏览器已在运行中"
-                }
+                return {"success": True, "cdp_url": self._cdp_url, "message": "浏览器已在运行中"}
 
             logger.info("🚀 启动本地浏览器桥接服务...")
 
@@ -119,10 +110,9 @@ class LocalBrowserBridge:
 
             # 添加CDP相关参数
             if use_cdp:
-                launch_options["args"].extend([
-                    f"--remote-debugging-port={cdp_port}",
-                    "--remote-debugging-address=0.0.0.0"
-                ])
+                launch_options["args"].extend(
+                    [f"--remote-debugging-port={cdp_port}", "--remote-debugging-address=0.0.0.0"]
+                )
 
             if chrome_path:
                 launch_options["executable_path"] = chrome_path
@@ -145,20 +135,11 @@ class LocalBrowserBridge:
 
             logger.info("✅ 本地浏览器启动成功")
 
-            return {
-                "success": True,
-                "cdp_url": self._cdp_url,
-                "headless": headless,
-                "message": "浏览器启动成功"
-            }
+            return {"success": True, "cdp_url": self._cdp_url, "headless": headless, "message": "浏览器启动成功"}
 
         except Exception as e:
             logger.error(f"❌ 启动浏览器失败: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "message": "浏览器启动失败"
-            }
+            return {"success": False, "error": str(e), "message": "浏览器启动失败"}
 
     async def stop(self) -> bool:
         """
@@ -205,9 +186,7 @@ class LocalBrowserBridge:
             return False
 
     async def create_context(
-        self,
-        storage_state: Optional[Dict[str, Any]] = None,
-        context_id: Optional[str] = None
+        self, storage_state: Optional[Dict[str, Any]] = None, context_id: Optional[str] = None
     ) -> BrowserContext:
         """
         创建浏览器上下文
@@ -259,12 +238,7 @@ class LocalBrowserBridge:
         page = await context.new_page()
         return page
 
-    async def execute_task(
-        self,
-        task_func,
-        *args,
-        **kwargs
-    ) -> Dict[str, Any]:
+    async def execute_task(self, task_func, *args, **kwargs) -> Dict[str, Any]:
         """
         在本地浏览器上执行任务
 
@@ -276,23 +250,14 @@ class LocalBrowserBridge:
             任务执行结果
         """
         if not self._is_running:
-            return {
-                "success": False,
-                "error": "浏览器未运行"
-            }
+            return {"success": False, "error": "浏览器未运行"}
 
         try:
             result = await task_func(self, *args, **kwargs)
-            return {
-                "success": True,
-                "result": result
-            }
+            return {"success": True, "result": result}
         except Exception as e:
             logger.error(f"执行任务失败: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def get_status(self) -> Dict[str, Any]:
         """
@@ -308,11 +273,7 @@ class LocalBrowserBridge:
             "chrome_found": self.find_chrome() is not None,
         }
 
-    async def save_storage_state(
-        self,
-        context_id: str,
-        file_path: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def save_storage_state(self, context_id: str, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         保存存储状态
 

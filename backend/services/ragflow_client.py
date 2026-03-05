@@ -235,6 +235,132 @@ class RAGFlowClient:
             logger.error(f"上传文档失败: {e}")
             return {"code": -1, "message": str(e)}
 
+    def upload_document_file(self, dataset_id: str, file_path: str, file_name: str = None) -> Dict:
+        """
+        上传二进制文件到知识库（支持PDF、Word、Excel等格式）
+
+        Args:
+            dataset_id: 知识库 ID
+            file_path: 文件路径（绝对路径）
+            file_name: 自定义文件名（可选，默认使用原文件名）
+
+        Returns:
+            API 响应
+        """
+        try:
+            import os
+            from pathlib import Path
+
+            file_path_obj = Path(file_path)
+            if not file_path_obj.exists():
+                return {"code": -1, "message": f"文件不存在: {file_path}"}
+
+            # 使用自定义文件名或原文件名
+            final_file_name = file_name or file_path_obj.name
+
+            # 确定文件MIME类型
+            mime_types = {
+                ".pdf": "application/pdf",
+                ".doc": "application/msword",
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xls": "application/vnd.ms-excel",
+                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".txt": "text/plain",
+                ".md": "text/markdown",
+                ".html": "text/html",
+                ".htm": "text/html",
+            }
+            content_type = mime_types.get(file_path_obj.suffix.lower(), "application/octet-stream")
+
+            # 读取二进制文件
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+
+            # 使用 multipart/form-data 上传二进制文件
+            files = {"file": (final_file_name, file_content, content_type)}
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+
+            resp = requests.post(
+                f"{self.base_url}/api/v1/datasets/{dataset_id}/documents",
+                files=files,
+                headers=headers,
+                timeout=self.timeout * 2,  # 文件上传可能需要更长时间
+            )
+            resp.raise_for_status()
+            result = resp.json()
+
+            if result.get("code") == 0:
+                logger.info(f"文件上传成功: {final_file_name}")
+                # 触发解析
+                doc_ids = [doc.get("id") for doc in result.get("data", [])]
+                if doc_ids:
+                    self.parse_documents(dataset_id, doc_ids)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"上传文件失败: {e}")
+            return {"code": -1, "message": str(e)}
+
+    def upload_document_bytes(
+        self, dataset_id: str, file_content: bytes, file_name: str, content_type: str = None
+    ) -> Dict:
+        """
+        上传二进制内容到知识库（用于直接上传内存中的文件）
+
+        Args:
+            dataset_id: 知识库 ID
+            file_content: 文件二进制内容
+            file_name: 文件名
+            content_type: MIME类型（可选）
+
+        Returns:
+            API 响应
+        """
+        try:
+            from pathlib import Path
+
+            # 确定文件MIME类型
+            if not content_type:
+                mime_types = {
+                    ".pdf": "application/pdf",
+                    ".doc": "application/msword",
+                    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ".xls": "application/vnd.ms-excel",
+                    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    ".txt": "text/plain",
+                    ".md": "text/markdown",
+                    ".html": "text/html",
+                    ".htm": "text/html",
+                }
+                content_type = mime_types.get(Path(file_name).suffix.lower(), "application/octet-stream")
+
+            # 使用 multipart/form-data 上传二进制文件
+            files = {"file": (file_name, file_content, content_type)}
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+
+            resp = requests.post(
+                f"{self.base_url}/api/v1/datasets/{dataset_id}/documents",
+                files=files,
+                headers=headers,
+                timeout=self.timeout * 2,  # 文件上传可能需要更长时间
+            )
+            resp.raise_for_status()
+            result = resp.json()
+
+            if result.get("code") == 0:
+                logger.info(f"二进制内容上传成功: {file_name}")
+                # 触发解析
+                doc_ids = [doc.get("id") for doc in result.get("data", [])]
+                if doc_ids:
+                    self.parse_documents(dataset_id, doc_ids)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"上传二进制内容失败: {e}")
+            return {"code": -1, "message": str(e)}
+
     def parse_documents(self, dataset_id: str, document_ids: List[str]) -> Dict:
         """
         触发文档解析（分块）

@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from loguru import logger
 
 from backend.database import get_db
@@ -88,6 +89,7 @@ def get_ws_manager():
 @router.get("/tasks", response_model=ApiResponse)
 async def get_auto_publish_tasks(
     status: Optional[str] = Query(None, description="任务状态过滤"),
+    platform: Optional[str] = Query(None, description="平台过滤"),
     limit: int = Query(50, ge=1, le=200, description="返回数量"),
     offset: int = Query(0, ge=0, description="偏移量"),
     db: Session = Depends(get_db),
@@ -96,11 +98,26 @@ async def get_auto_publish_tasks(
     获取自动发布任务列表
 
     用于展示用户创建的所有后台发布任务
+    支持按状态和平台筛选
     """
     query = db.query(AutoPublishTask).order_by(AutoPublishTask.created_at.desc())
 
     if status:
         query = query.filter(AutoPublishTask.status == status)
+
+    # 如果指定了平台筛选，需要关联账号表
+    if platform:
+        # 子查询：获取指定平台的所有账号ID
+        platform_account_ids = db.query(Account.id).filter(Account.platform == platform, Account.status == 1).all()
+        platform_account_ids = [acc[0] for acc in platform_account_ids]
+
+        # 筛选包含指定平台账号的任务
+        if platform_account_ids:
+            # 使用JSON_OVERLAPS或contains筛选account_ids
+            query = query.filter(AutoPublishTask.account_ids.op("&&")(platform_account_ids))
+        else:
+            # 如果该平台没有账号，返回空结果
+            return ApiResponse(data={"total": 0, "items": []})
 
     total = query.count()
     tasks = query.offset(offset).limit(limit).all()
@@ -241,12 +258,15 @@ async def create_auto_publish_task(
     if disabled_accounts:
         raise HTTPException(status_code=400, detail=f"以下账号未授权或已禁用: {', '.join(disabled_accounts)}")
 
-    # 3. 检查文章状态
-    invalid_articles = [a.title for a in articles if a.publish_status not in ["completed", "scheduled", "failed"]]
+    # 3. 检查文章状态（移除限制，允许重复发布）
+    # 之前的逻辑：只能发布状态为 completed/scheduled/failed 的文章
+    # 新逻辑：允许任何文章重新发布（支持重复发布到不同平台）
+    # 只要文章内容存在即可发布
+    invalid_articles = [a.title for a in articles if not a.content]
     if invalid_articles:
         raise HTTPException(
             status_code=400,
-            detail=f"以下文章状态不可发布: {', '.join(invalid_articles[:3])}{'...' if len(invalid_articles) > 3 else ''}",
+            detail=f"以下文章内容为空，无法发布: {', '.join(invalid_articles[:3])}{'...' if len(invalid_articles) > 3 else ''}",
         )
 
     # 4. 验证执行类型和配置
@@ -276,6 +296,7 @@ async def create_auto_publish_task(
         exec_type=request.exec_type,
         scheduled_at=scheduled_at,
         interval_minutes=request.interval_minutes,
+        declare_ai_content=request.declare_ai_content,
         total_count=total_count,
         completed_count=0,
         failed_count=0,
@@ -380,26 +401,36 @@ async def update_auto_publish_task(
 
 
 @router.delete("/tasks/{task_id}", response_model=ApiResponse)
-async def delete_auto_publish_task(
-    task_id: int,
-    db: Session = Depends(get_db),
-):
+async def delete_auto_publish_task(task_id: int):
     """
     删除自动发布任务
 
     只能删除已完成或已取消的任务
     """
-    task = db.query(AutoPublishTask).filter(AutoPublishTask.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="任务不存在")
+    # 艹！完全不使用FastAPI的get_db，自己创建engine和connection
+    from sqlalchemy import create_engine
+    from backend.config import DATABASE_URL
 
-    # 只能删除非运行中的任务
-    if task.status == "running":
-        raise HTTPException(status_code=400, detail="无法删除正在执行的任务")
+    engine = create_engine(DATABASE_URL)
+    with engine.connect() as conn:
+        # 开启外键约束
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        # 检查任务状态
+        result = conn.execute(
+            text("SELECT status FROM auto_publish_tasks WHERE id = :task_id"), {"task_id": task_id}
+        ).fetchone()
+        if not result:
+            raise HTTPException(status_code=404, detail="任务不存在")
 
-    # 删除任务（级联删除子任务记录）
-    db.delete(task)
-    db.commit()
+        task_status = result[0]
+        if task_status == "running":
+            raise HTTPException(status_code=400, detail="无法删除正在执行的任务")
+
+        # 先删除关联的发布记录
+        conn.execute(text("DELETE FROM auto_publish_records WHERE task_id = :task_id"), {"task_id": task_id})
+        # 删除任务
+        conn.execute(text("DELETE FROM auto_publish_tasks WHERE id = :task_id"), {"task_id": task_id})
+        conn.commit()
 
     logger.info(f"自动发布任务已删除: {task_id}")
 
@@ -575,8 +606,9 @@ async def execute_auto_publish_task(task_id: int, db: Session):
                 if not article or not account:
                     raise Exception("文章或账号不存在")
 
-                # 执行发布
-                result = await publish_mgr.execute_publish(article, account)
+                # 执行发布 (传递AI声明选项)
+                declare_ai = getattr(task, "declare_ai_content", True)
+                result = await publish_mgr.execute_publish(article, account, declare_ai_content=declare_ai)
 
                 if result.get("success"):
                     # 发布成功

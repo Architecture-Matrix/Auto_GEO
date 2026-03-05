@@ -15,7 +15,14 @@ from loguru import logger
 
 from playwright.async_api import async_playwright, Browser
 
-from backend.config import AI_PLATFORMS, BROWSER_ARGS, DEFAULT_USER_AGENT, LOCAL_BROWSER_URL, LOCAL_BROWSER_CDP_PORT, FORCE_LOCAL_BROWSER
+from backend.config import (
+    AI_PLATFORMS,
+    BROWSER_ARGS,
+    DEFAULT_USER_AGENT,
+    LOCAL_BROWSER_URL,
+    LOCAL_BROWSER_CDP_PORT,
+    FORCE_LOCAL_BROWSER,
+)
 from backend.services.session_manager import secure_session_manager
 from backend.services.cdp_browser_manager import cdp_browser_manager
 
@@ -36,7 +43,9 @@ class AuthService:
         self._playwright = None  # 用于云端启动浏览器
         self._use_cdp = FORCE_LOCAL_BROWSER or bool(LOCAL_BROWSER_URL)  # 是否使用CDP
 
-        logger.info(f"授权服务初始化: CDP模式={self._use_cdp}, URL={LOCAL_BROWSER_URL or f'localhost:{LOCAL_BROWSER_CDP_PORT}'}")
+        logger.info(
+            f"授权服务初始化: CDP模式={self._use_cdp}, URL={LOCAL_BROWSER_URL or f'localhost:{LOCAL_BROWSER_CDP_PORT}'}"
+        )
 
     async def start_auth_flow(self, user_id: int, project_id: int, platforms: List[str]) -> Dict[str, Any]:
         """
@@ -674,7 +683,7 @@ class AuthService:
 
             # 保存到会话中，标记为CDP模式
             # 后续关闭时需要特殊处理
-            self._active_auth_sessions.get(list(self._auth_status.keys())[-1], {})['_is_cdp'] = True
+            self._active_auth_sessions.get(list(self._auth_status.keys())[-1], {})["_is_cdp"] = True
 
             return browser, context, page, debug_url
 

@@ -23,7 +23,7 @@ class BasePublisher(ABC):
         self.color = config.get("color", "#333333")
 
     @abstractmethod
-    async def publish(self, page: Page, article: Any, account: Any) -> Dict[str, Any]:
+    async def publish(self, page: Page, article: Any, account: Any, declare_ai_content: bool = True) -> Dict[str, Any]:
         """
         发布文章到目标平台
 
@@ -31,6 +31,7 @@ class BasePublisher(ABC):
             page: Playwright Page对象
             article: 文章对象（title, content等）
             account: 账号对象
+            declare_ai_content: 是否勾选AI创作内容声明 (默认True)
 
         Returns:
             发布结果：{
