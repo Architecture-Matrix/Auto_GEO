@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI):
     # 5. 注册平台发布适配器
     register_publishers(PLATFORMS)
     logger.bind(module="发布器").success(
-        f"已注册 {len([k for k in PLATFORMS.keys() if k in ['zhihu', 'baijiahao', 'sohu', 'toutiao']])} 个平台发布器"
+        f"已注册 {len([k for k in PLATFORMS.keys() if k in ['zhihu', 'baijiahao', 'sohu', 'toutiao', 'xiaohongshu', 'douyin']])} 个平台发布器"
     )
 
     yield

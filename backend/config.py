@@ -71,6 +71,25 @@ ENCRYPTION_KEY = os.getenv(
 ).encode()[:32]  # 确保是32字节
 
 # ==================== Playwright配置 ====================
+# 部署模式：local(本地), cloud(云端), hybrid(混合)
+DEPLOYMENT_MODE: Literal["local", "cloud", "hybrid"] = os.getenv(
+    "DEPLOYMENT_MODE",
+    "local"  # 默认本地模式
+)
+
+# 是否启用headless模式（可通过环境变量覆盖）
+HEADLESS_MODE = os.getenv("HEADLESS_MODE", "false").lower() == "true"
+
+# 本地浏览器CDP端口（用于混合架构）
+LOCAL_BROWSER_CDP_PORT = int(os.getenv("LOCAL_BROWSER_CDP_PORT", "9222"))
+
+# 本地浏览器公网地址（通过内网穿透暴露）
+# 格式: http://xxxxx.xxx.io 或 http://IP:PORT
+LOCAL_BROWSER_URL = os.getenv("LOCAL_BROWSER_URL", "")
+
+# 是否强制使用本地浏览器（通过CDP连接）
+FORCE_LOCAL_BROWSER = os.getenv("FORCE_LOCAL_BROWSER", "false").lower() == "true"
+
 # 浏览器类型
 BROWSER_TYPE: Literal["chromium", "firefox", "webkit"] = "chromium"
 

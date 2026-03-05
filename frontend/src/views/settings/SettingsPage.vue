@@ -71,6 +71,48 @@
       </div>
 
       <div class="setting-section">
+        <h3>本地浏览器桥接服务</h3>
+        <div class="setting-item">
+          <div class="setting-info">
+            <span>服务状态</span>
+            <span class="setting-desc">本地浏览器桥接服务运行状态</span>
+          </div>
+          <div class="setting-value">
+            <span class="status-badge" :class="bridgeStatusClass">
+              {{ bridgeStatusText }}
+            </span>
+          </div>
+        </div>
+        <div class="setting-item" v-if="bridgeConfig">
+          <div class="setting-info">
+            <span>CDP端口</span>
+            <span class="setting-desc">Chrome DevTools Protocol 端口</span>
+          </div>
+          <div class="setting-value">
+            <span class="port-badge">{{ bridgeConfig.cdpPort }}</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <span>重启服务</span>
+            <span class="setting-desc">重启浏览器桥接服务</span>
+          </div>
+          <el-button type="primary" link @click="restartBridge" :loading="bridgeRestarting">
+            重新启动
+            <svg viewBox="0 0 16 16" fill="currentColor" width="12">
+              <path d="M4 8a.5.5 0 01.5-.5h5.793L4.146 3.354a.5.5 0 11.708-.708l7 7a.5.5 0 010 .708l-7 7a.5.5 0 01-.708-.708L10.293 8.5H4.5A.5.5 0 014 8z"/>
+            </svg>
+          </el-button>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <span>服务说明</span>
+            <span class="setting-desc">用于本地授权和文章发布，启动时自动运行</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-section">
         <h3>关于</h3>
         <div class="about-info">
           <div class="about-header">
@@ -89,14 +131,88 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const darkTheme = ref(true)
 const minimizeToTray = ref(false)
 const publishNotification = ref(true)
 const schedulerRunning = ref(true)
+
+// 浏览器桥接服务状态
+const bridgeStatus = ref<'stopped' | 'starting' | 'running' | 'error'>('stopped')
+const bridgeConfig = ref<any>(null)
+const bridgeRestarting = ref(false)
+let statusCheckInterval: number | null = null
+
+// 状态文本映射
+const bridgeStatusText = computed(() => {
+  const statusMap = {
+    stopped: '已停止',
+    starting: '启动中',
+    running: '运行中',
+    error: '错误'
+  }
+  return statusMap[bridgeStatus.value] || '未知'
+})
+
+// 状态样式类
+const bridgeStatusClass = computed(() => {
+  return {
+    active: bridgeStatus.value === 'running',
+    error: bridgeStatus.value === 'error',
+    starting: bridgeStatus.value === 'starting'
+  }
+})
+
+// 获取桥接服务状态
+const fetchBridgeStatus = async () => {
+  try {
+    if (!window.electronAPI) {
+      console.log('[Settings] 非 Electron 环境，跳过桥接服务状态获取')
+      return
+    }
+    const status = await window.electronAPI.getBridgeStatus()
+    bridgeStatus.value = status.status
+  } catch (error) {
+    console.error('[Settings] 获取桥接服务状态失败:', error)
+  }
+}
+
+// 获取桥接服务配置
+const fetchBridgeConfig = async () => {
+  try {
+    if (!window.electronAPI) return
+    const config = await window.electronAPI.getBridgeConfig()
+    bridgeConfig.value = config
+  } catch (error) {
+    console.error('[Settings] 获取桥接服务配置失败:', error)
+  }
+}
+
+// 重启桥接服务
+const restartBridge = async () => {
+  bridgeRestarting.value = true
+  try {
+    const result = await window.electronAPI?.restartBridge()
+    if (result?.success) {
+      ElMessage.success('浏览器桥接服务正在重启...')
+      // 等待服务启动
+      setTimeout(() => {
+        fetchBridgeStatus()
+      }, 2000)
+    } else {
+      ElMessage.error('重启失败，请检查日志')
+    }
+  } catch (error) {
+    console.error('[Settings] 重启桥接服务失败:', error)
+    ElMessage.error('重启失败')
+  } finally {
+    bridgeRestarting.value = false
+  }
+}
 
 const goToScheduler = () => {
   router.push({ name: 'Scheduler' })
@@ -105,6 +221,25 @@ const goToScheduler = () => {
 const goToKnowledge = () => {
   router.push({ name: 'Knowledge' })
 }
+
+// 组件挂载时获取状态
+onMounted(async () => {
+  await fetchBridgeStatus()
+  await fetchBridgeConfig()
+
+  // 定期检查状态（每5秒）
+  if (window.electronAPI) {
+    statusCheckInterval = window.setInterval(() => {
+      fetchBridgeStatus()
+    }, 5000)
+  }
+})
+
+onUnmounted(() => {
+  if (statusCheckInterval) {
+    clearInterval(statusCheckInterval)
+  }
+})
 </script>
 
 <style scoped lang="scss">
@@ -180,6 +315,26 @@ const goToKnowledge = () => {
           background: rgba(34, 197, 94, 0.1);
           color: #22c55e;
         }
+
+        &.error {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+        }
+
+        &.starting {
+          background: rgba(251, 191, 36, 0.1);
+          color: #fbbf24;
+        }
+      }
+
+      .port-badge {
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        font-family: 'Consolas', 'Monaco', monospace;
       }
     }
   }

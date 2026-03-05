@@ -14,12 +14,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Callable
 
+# ==================== Windows asyncio subprocess 兼容性修复 ====================
+# 艹！Windows下必须用ProactorEventLoop支持subprocess，而Playwright需要fork子进程
+# SelectorEventLoop在Windows下不支持subprocess，会报NotImplementedError
+# 必须在导入playwright之前设置事件循环策略，否则这个憨批会报NotImplementedError
+if sys.platform == 'win32':
+    try:
+        # Windows需要ProactorEventLoop来支持subprocess
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except AttributeError:
+        # 如果老版本Python不支持，至少记录一下警告
+        import warnings
+        warnings.warn("Python版本过低，Windows ProactorEventLoopPolicy不可用，Playwright可能会失败")
+# ==================== 修复结束 ====================
+
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 from loguru import logger
 from sqlalchemy.orm import Session
 
-from backend.config import BROWSER_TYPE, BROWSER_ARGS, DEFAULT_USER_AGENT, PLATFORMS
+from backend.config import BROWSER_TYPE, BROWSER_ARGS, DEFAULT_USER_AGENT, PLATFORMS, LOCAL_BROWSER_URL, LOCAL_BROWSER_CDP_PORT, FORCE_LOCAL_BROWSER
 from backend.services.crypto import encrypt_cookies, encrypt_storage_state, decrypt_cookies, decrypt_storage_state
+from backend.services.cdp_browser_manager import cdp_browser_manager
 
 # 注意：这里我们只导入 registry，具体的发布器注册逻辑通常在应用启动时完成
 from backend.services.playwright.publishers.base import registry
@@ -48,6 +63,7 @@ class PlaywrightManager:
     """
     Playwright 管理器 (单例模式)
     管理所有浏览器实例、授权任务和上下文
+    支持CDP连接本地浏览器（混合架构）
     """
 
     def __init__(self):
@@ -60,6 +76,10 @@ class PlaywrightManager:
         self._db_factory: Optional[Callable] = None
         # WebSocket 通知回调
         self._ws_callback: Optional[Callable] = None
+        # 是否使用CDP模式
+        self._use_cdp = FORCE_LOCAL_BROWSER or bool(LOCAL_BROWSER_URL)
+
+        logger.info(f"PlaywrightManager初始化: CDP模式={self._use_cdp}")
 
     def set_db_factory(self, db_factory: Callable):
         """设置数据库会话工厂"""
@@ -90,6 +110,47 @@ class PlaywrightManager:
             return
 
         logger.info("🚀 正在启动 Playwright 浏览器服务...")
+
+        # CDP模式：连接本地浏览器
+        if self._use_cdp:
+            await self._start_cdp()
+            return
+
+        # 云端模式：在服务器上启动浏览器
+        await self._start_local()
+
+    async def _start_cdp(self):
+        """通过CDP连接本地浏览器"""
+        try:
+            logger.info("🌐 [CDP模式] 正在连接本地浏览器...")
+
+            cdp_url = cdp_browser_manager.get_cdp_url()
+            logger.info(f"🔗 CDP地址: {cdp_url}")
+
+            # 连接CDP浏览器
+            success = await cdp_browser_manager.connect(cdp_url)
+            if not success:
+                raise Exception("CDP连接失败")
+
+            self._browser = cdp_browser_manager._browser
+            self._is_running = True
+            logger.success("✅ [CDP模式] 浏览器连接成功")
+
+        except Exception as e:
+            logger.error(f"❌ [CDP模式] 启动失败: {e}")
+            raise e
+
+    async def _start_local(self):
+        """在云端启动浏览器（传统模式）"""
+        # Windows下必须用ProactorEventLoop支持subprocess
+        if sys.platform == 'win32':
+            try:
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+                loop = asyncio.get_event_loop()
+                logger.info(f"✅ 已设置 Windows ProactorEventLoopPolicy")
+            except Exception as e:
+                logger.error(f"设置事件循环策略失败: {e}")
+
         self._playwright = await async_playwright().start()
 
         # 尝试查找本地 Chrome 路径（绕过检测，更稳定）
@@ -871,9 +932,14 @@ class PlaywrightManager:
 
     # ==================== 发布相关 ====================
 
-    async def execute_publish(self, article: Any, account: Any) -> Dict[str, Any]:
+    async def execute_publish(self, article: Any, account: Any, declare_ai_content: bool = True) -> Dict[str, Any]:
         """
         供 Service 调用的发布执行入口 (核心)
+
+        Args:
+            article: 文章对象
+            account: 账号对象
+            declare_ai_content: 是否勾选AI创作内容声明 (默认True)
         """
         await self.start()
 
@@ -905,9 +971,9 @@ class PlaywrightManager:
 
             page = await context.new_page()
 
-            # 执行发布逻辑
-            logger.info(f"🚀 [Publish] 开始执行发布: {account.platform} - {article.title}")
-            result = await publisher.publish(page, article, account)
+            # 执行发布逻辑 (传递AI声明选项)
+            logger.info(f"🚀 [Publish] 开始执行发布: {account.platform} - {article.title}, AI声明: {declare_ai_content}")
+            result = await publisher.publish(page, article, account, declare_ai_content=declare_ai_content)
 
             return result
 

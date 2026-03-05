@@ -2,26 +2,29 @@
 """
 授权服务
 处理AI平台的Web端授权流程
+支持CDP连接本地浏览器（混合架构）
 """
 
 import asyncio
 import uuid
 import os
 import sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from loguru import logger
 
 from playwright.async_api import async_playwright, Browser
 
-from backend.config import AI_PLATFORMS, BROWSER_ARGS, DEFAULT_USER_AGENT
+from backend.config import AI_PLATFORMS, BROWSER_ARGS, DEFAULT_USER_AGENT, LOCAL_BROWSER_URL, LOCAL_BROWSER_CDP_PORT, FORCE_LOCAL_BROWSER
 from backend.services.session_manager import secure_session_manager
+from backend.services.cdp_browser_manager import cdp_browser_manager
 
 
 class AuthService:
     """
     授权服务
     管理AI平台的授权流程
+    支持CDP连接本地浏览器（混合架构）
     """
 
     def __init__(self):
@@ -30,6 +33,10 @@ class AuthService:
         """
         self._active_auth_sessions: Dict[str, Dict[str, Any]] = {}
         self._auth_status: Dict[str, Dict[str, Any]] = {}
+        self._playwright = None  # 用于云端启动浏览器
+        self._use_cdp = FORCE_LOCAL_BROWSER or bool(LOCAL_BROWSER_URL)  # 是否使用CDP
+
+        logger.info(f"授权服务初始化: CDP模式={self._use_cdp}, URL={LOCAL_BROWSER_URL or f'localhost:{LOCAL_BROWSER_CDP_PORT}'}")
 
     async def start_auth_flow(self, user_id: int, project_id: int, platforms: List[str]) -> Dict[str, Any]:
         """
@@ -145,15 +152,15 @@ class AuthService:
             if not all([browser, context, page]):
                 return {"success": False, "error": "浏览器启动失败", "error_code": "BROWSER_LAUNCH_FAILED"}
 
-            # 导航到平台页面（使用较短的超时时间）
+            # 导航到平台页面
             platform_config = AI_PLATFORMS[platform]
             platform_url = platform_config.get("url", "")
 
             if platform_url:
                 try:
                     logger.info(f"导航到平台页面: {platform_url}")
-                    # 使用较短的超时时间，避免后端请求超时
-                    await page.goto(platform_url, wait_until="domcontentloaded", timeout=15000)  # 15秒超时
+                    # 修复：增加超时时间到60秒，给平台更多加载时间
+                    await page.goto(platform_url, wait_until="domcontentloaded", timeout=60000)
                     # 不等待networkidle，只等待DOM加载完成
                 except Exception as e:
                     logger.error(f"导航失败: {e}")
@@ -230,7 +237,8 @@ class AuthService:
                     if not page_loaded:
                         try:
                             # 等待页面加载完成
-                            await page.wait_for_load_state("domcontentloaded", timeout=10000)
+                            # 修复：增加超时到30秒，给页面更多加载时间
+                            await page.wait_for_load_state("domcontentloaded", timeout=30000)
                             page_loaded = True
                             logger.info(f"页面加载完成: platform={platform}")
                         except Exception as e:
@@ -616,21 +624,79 @@ class AuthService:
 
     async def _launch_browser_for_auth(self) -> tuple:
         """
-        启动用于授权的浏览器（禁用远程调试）
-        优先使用本地Chrome，如果不存在则使用Playwright内置浏览器
-        如果都失败，尝试自动安装Playwright浏览器
+        启动用于授权的浏览器
+        支持两种模式：
+        1. CDP模式：连接本地浏览器（通过内网穿透）
+        2. 云端模式：在服务器上启动浏览器
 
         Returns:
             (browser, context, page, debug_url) 元组
         """
-        # 确保配置已加载
+        # 优先使用CDP模式
+        if self._use_cdp:
+            return await self._launch_browser_cdp()
+        else:
+            return await self._launch_browser_local()
 
+    async def _launch_browser_cdp(self) -> tuple:
+        """
+        通过CDP连接本地浏览器（混合架构）
+
+        Returns:
+            (browser, context, page, debug_url) 元组
+        """
         try:
-            logger.info("开始启动授权浏览器...")
+            logger.info("🌐 [CDP模式] 正在连接本地浏览器...")
+
+            # 获取CDP地址
+            cdp_url = cdp_browser_manager.get_cdp_url()
+            logger.info(f"🔗 CDP地址: {cdp_url}")
+
+            # 连接CDP浏览器
+            success = await cdp_browser_manager.connect(cdp_url)
+            if not success:
+                return None, None, None, None
+
+            # 获取browser实例
+            browser = cdp_browser_manager._browser
+            if not browser:
+                logger.error("CDP连接成功但无法获取browser实例")
+                return None, None, None, None
+
+            # 创建上下文和页面
+            logger.info("[CDP模式] 创建浏览器上下文...")
+            context = await browser.new_context(user_agent=DEFAULT_USER_AGENT)
+            page = await context.new_page()
+
+            # CDP模式下，debug_url就是CDP地址
+            debug_url = cdp_url
+            logger.info(f"✅ [CDP模式] 浏览器连接成功，CDP: {debug_url}")
+
+            # 保存到会话中，标记为CDP模式
+            # 后续关闭时需要特殊处理
+            self._active_auth_sessions.get(list(self._auth_status.keys())[-1], {})['_is_cdp'] = True
+
+            return browser, context, page, debug_url
+
+        except Exception as e:
+            logger.error(f"❌ [CDP模式] 连接失败: {e}")
+            return None, None, None, None
+
+    async def _launch_browser_local(self) -> tuple:
+        """
+        在云端启动浏览器（传统模式）
+
+        Returns:
+            (browser, context, page, debug_url) 元组
+        """
+        # 原有逻辑保持不变
+        try:
+            logger.info("☁️ [云端模式] 正在启动本地浏览器...")
 
             # 启动Playwright
             logger.info("启动Playwright...")
             playwright = await async_playwright().start()
+            self._playwright = playwright
 
             # 1. 尝试查找本地 Chrome 路径
             chrome_paths = [
@@ -731,27 +797,30 @@ class AuthService:
                 raise Exception(f"创建页面失败: {str(context_error)}")
 
             # 禁用远程调试，返回None
-            debug_url = None
-
-            logger.info("浏览器启动成功，远程调试已禁用")
-            return browser, context, page, debug_url
+            logger.info("✅ [云端模式] 浏览器启动成功")
+            return browser, context, page, None
 
         except Exception as e:
-            logger.error(f"启动授权浏览器异常: {e}")
-            # 返回错误信息而不是None，但这需要修改调用方的逻辑
-            # 目前保持返回 None，但在日志中记录详细信息
+            logger.error(f"❌ [云端模式] 浏览器启动失败: {e}")
             return None, None, None, None
 
-    async def _close_browser(self, browser: Browser):
+    async def _close_browser(self, browser: Browser, is_cdp: bool = False):
         """
         关闭浏览器
 
         Args:
             browser: Playwright Browser对象
+            is_cdp: 是否为CDP模式
         """
         try:
             if browser:
-                await browser.close()
+                if is_cdp:
+                    # CDP模式下不断开全局连接，只关闭当前context
+                    logger.info("[CDP模式] 关闭授权上下文（保持CDP连接）")
+                else:
+                    # 云端模式，关闭浏览器
+                    await browser.close()
+                    logger.info("[云端模式] 浏览器已关闭")
         except Exception as e:
             logger.error(f"关闭浏览器失败: {e}")
 

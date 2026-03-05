@@ -6,6 +6,7 @@
 import { ipcMain, shell, dialog } from 'electron'
 import { getMainWindow, createAuthWindow, showNotification } from './window-manager'
 import * as backendManager from './backend-manager'
+import * as browserBridgeManager from './browser-bridge-manager'
 
 // 允许的调用通道（白名单模式）
 const INVOKE_CHANNELS = [
@@ -21,6 +22,9 @@ const INVOKE_CHANNELS = [
   'backend:get-status',
   'backend:restart',
   'backend:get-config',
+  'bridge:get-status',
+  'bridge:restart',
+  'bridge:get-config',
 ]
 
 // 允许的发送通道
@@ -159,6 +163,36 @@ export function registerHandlers(): void {
   ipcMain.handle('backend:get-config', (event) => {
     if (!validateSender(event.senderFrame)) return null
     return backendManager.backendManager.getConfig()
+  })
+
+  // ==================== 浏览器桥接服务相关 ====================
+
+  /**
+   * 获取桥接服务状态
+   */
+  ipcMain.handle('bridge:get-status', (event) => {
+    if (!validateSender(event.senderFrame)) return { status: 'unknown' }
+    return {
+      status: browserBridgeManager.browserBridgeManager.getStatus(),
+      pid: browserBridgeManager.browserBridgeManager['process']?.pid || null
+    }
+  })
+
+  /**
+   * 重启桥接服务
+   */
+  ipcMain.handle('bridge:restart', async (event) => {
+    if (!validateSender(event.senderFrame)) return { success: false }
+    const result = await browserBridgeManager.browserBridgeManager.restart()
+    return { success: result }
+  })
+
+  /**
+   * 获取桥接服务配置
+   */
+  ipcMain.handle('bridge:get-config', (event) => {
+    if (!validateSender(event.senderFrame)) return null
+    return browserBridgeManager.browserBridgeManager.getConfig()
   })
 
   // 提示：未注册的通道会被拒绝，安全第一！

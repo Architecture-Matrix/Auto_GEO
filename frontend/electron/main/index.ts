@@ -11,6 +11,7 @@ import * as ipcHandlers from './ipc-handlers'
 import * as trayManager from './tray-manager'
 import * as backendManager from './backend-manager'
 import { setAppQuitting } from './backend-manager'
+import * as browserBridgeManager from './browser-bridge-manager'
 
 // 提示：禁用硬件加速，避免一些兼容性问题
 app.disableHardwareAcceleration()
@@ -23,6 +24,10 @@ app.whenReady().then(async () => {
   // 修改：不再自动启动后端，由用户手动启动！
   // console.log('[App] 正在启动 Python 后端...')
   // await backendManager.backendManager.start()
+
+  // 自动启动浏览器桥接服务（用于本地授权和发布）
+  console.log('[App] 正在启动本地浏览器桥接服务...')
+  await browserBridgeManager.browserBridgeManager.start()
 
   // 设置应用用户模型ID（Windows通知用）
   electronApp.setAppUserModelId('com.autogeo.app')
@@ -63,6 +68,8 @@ app.on('before-quit', () => {
   setAppQuitting()
   // 清理资源
   trayManager.destroyTray()
+  // 停止浏览器桥接服务
+  browserBridgeManager.browserBridgeManager.stop()
   // 修改：不再自动停止后端，由用户手动管理！
   // 如果将来需要自动管理，可以在这里调用
   // backendManager.backendManager.stop()

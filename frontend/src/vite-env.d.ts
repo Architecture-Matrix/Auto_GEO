@@ -31,6 +31,23 @@ interface ElectronAPI {
   showNotification(title: string, body: string): void
   onAuthWindowClosed(callback: (data: any) => void): () => void
   onPublishProgress(callback: (data: any) => void): () => void
+
+  // 后端管理
+  getBackendStatus(): Promise<{
+    status: 'stopped' | 'starting' | 'running' | 'error'
+    pid: number | null
+  }>
+  restartBackend(): Promise<{ success: boolean }>
+  getBackendConfig(): Promise<any>
+
+  // 浏览器桥接服务管理
+  getBridgeStatus(): Promise<{
+    status: 'stopped' | 'starting' | 'running' | 'error'
+    pid: number | null
+  }>
+  restartBridge(): Promise<{ success: boolean }>
+  getBridgeConfig(): Promise<any>
+
   platforms: Record<string, { id: string; name: string; color: string }>
 }
 

@@ -19,6 +19,9 @@ const INVOKE_CHANNELS = [
   'backend:get-status',
   'backend:restart',
   'backend:get-config',
+  'bridge:get-status',
+  'bridge:restart',
+  'bridge:get-config',
 ]
 
 const SEND_CHANNELS = [
@@ -65,6 +68,11 @@ const electronAPI = {
   getBackendStatus: () => ipcRenderer.invoke('backend:get-status'),
   restartBackend: () => ipcRenderer.invoke('backend:restart'),
   getBackendConfig: () => ipcRenderer.invoke('backend:get-config'),
+
+  // 浏览器桥接服务管理
+  getBridgeStatus: () => ipcRenderer.invoke('bridge:get-status'),
+  restartBridge: () => ipcRenderer.invoke('bridge:restart'),
+  getBridgeConfig: () => ipcRenderer.invoke('bridge:get-config'),
 
   // 监听主进程消息
   onAuthWindowClosed: (callback: (data: any) => void) => {

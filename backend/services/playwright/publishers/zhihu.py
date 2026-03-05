@@ -52,8 +52,11 @@ class ZhihuPublisher(BasePublisher):
             downloaded_paths = await self._download_images(image_urls)
             temp_files.extend(downloaded_paths)
 
+            # E. 图片下载失败时记录警告但不终止发布（允许无图发布）
             if not downloaded_paths:
-                return {"success": False, "error_msg": "图片下载失败，无法满足强制配图需求"}
+                logger.warning("⚠️ 图片下载失败，将尝试无图发布")
+            else:
+                logger.success(f"✅ 图片下载成功: {len(downloaded_paths)}/{len(image_urls)}")
 
             # 3. 填充标题
             await self._fill_title(page, article.title)
@@ -64,8 +67,11 @@ class ZhihuPublisher(BasePublisher):
             # 5. [新增] 设置 AI 声明 (来自同事的功能)
             await self._set_ai_declaration(page)
 
-            # 6. 执行多图排版上传 (你的核心功能)
-            await self._handle_multi_image_upload(page, downloaded_paths)
+            # 6. 执行多图排版上传 (仅在有图片时执行)
+            if downloaded_paths:
+                await self._handle_multi_image_upload(page, downloaded_paths)
+            else:
+                logger.info("ℹ️ 跳过图片上传步骤（无可用图片）")
 
             # 7. 发布流程
             topic_word = getattr(article, "keyword_text", article.title[:4])
