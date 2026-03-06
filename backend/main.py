@@ -5,6 +5,35 @@ AutoGeo 后端主程序
 
 import sys
 import os
+
+# ==================== PyInstaller 打包适配 ====================
+# 检测是否在打包环境下运行
+def get_resource_path(relative_path: str) -> str:
+    """
+    获取资源文件的绝对路径
+    PyInstaller 打包后会放在临时目录 _MEIPASS
+    开发环境直接返回相对路径
+    """
+    if hasattr(sys, '_MEIPASS'):
+        # 打包环境：资源在 sys._MEIPASS 目录中
+        base_path = sys._MEIPASS
+        return os.path.join(base_path, relative_path)
+    else:
+        # 开发环境：相对于当前文件位置
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_path, relative_path)
+
+
+# 保存原始的 __file__ 路径，供后续使用
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 如果是打包环境，更新 sys.path 以便导入模块
+if hasattr(sys, '_MEIPASS'):
+    # 打包环境下，后端目录就是 _MEIPASS
+    backend_dir = sys._MEIPASS
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+
 import asyncio
 from contextlib import asynccontextmanager
 import uuid
@@ -147,8 +176,13 @@ app.add_middleware(
 
 
 # ==================== 静态资源挂载 ====================
-current_dir = os.path.dirname(os.path.abspath(__file__))
-static_dir = os.path.join(current_dir, "static")
+# 使用打包适配函数获取路径
+if hasattr(sys, '_MEIPASS'):
+    # 打包环境：使用 _MEIPASS 下的 static 目录
+    static_dir = get_resource_path("static")
+else:
+    # 开发环境：使用当前目录下的 static
+    static_dir = os.path.join(CURRENT_DIR, "static")
 
 if not os.path.exists(static_dir):
     logger.info(f"正在创建静态目录: {static_dir}")

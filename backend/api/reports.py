@@ -94,12 +94,12 @@ async def get_article_stats(
     """
     获取 GeoArticle 文章统计信息
 
-    统计不同状态的文章数量：
-    - total: 总数
-    - generating: 生成中
-    - completed: 已生成/待分发 (completed)
-    - published: 已发布
-    - failed: 生成失败
+    返回仪表盘需要的统计数据：
+    - total_articles: 总文章数
+    - published_count: 已发布文章数
+    - indexed_count: 已收录文章数（暂未实现，返回0）
+    - index_rate: 收录率
+    - platform_distribution: 平台发布分布
     """
     # 构建基础查询
     query = db.query(GeoArticle)
@@ -108,7 +108,7 @@ async def get_article_stats(
     if project_id:
         query = query.join(Keyword).filter(Keyword.project_id == project_id)
 
-    # 统计各状态数量（使用聚合查询提高性能）
+    # 统计各状态数量
     stats = (
         db.query(GeoArticle.publish_status, func.count(GeoArticle.id).label("count"))
         .filter(GeoArticle.publish_status.in_(["generating", "completed", "scheduled", "published", "failed"]))
@@ -121,13 +121,21 @@ async def get_article_stats(
 
     # 统计总数（包含其他状态如 draft）
     total = query.count()
+    published_count = stats_dict.get("published", 0)
+
+    # 平台分布（暂时返回空字典，后续可以从 PublishRecord 表统计）
+    platform_distribution: Dict[str, int] = {}
+
+    # 计算收录率（暂无收录数据，返回0）
+    indexed_count = 0
+    index_rate = 0.0
 
     return ArticleStatsResponse(
-        total=total,
-        generating=stats_dict.get("generating", 0),
-        completed=stats_dict.get("completed", 0),
-        published=stats_dict.get("published", 0),
-        failed=stats_dict.get("failed", 0),
+        total_articles=total,
+        published_count=published_count,
+        indexed_count=indexed_count,
+        index_rate=index_rate,
+        platform_distribution=platform_distribution,
     )
 
 

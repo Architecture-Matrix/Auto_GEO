@@ -74,6 +74,10 @@ def init_db():
         ScheduledTask,
         KnowledgeCategory,
         Knowledge,  # 🌟 补齐了之前遗漏的表
+        AutoPublishTask,  # 🌟 自动发布任务表
+        AutoPublishRecord,  # 🌟 自动发布记录表
+        Client,  # 🌟 客户表
+        SiteProject,  # 🌟 AEO网站项目表
     )
 
     # 获取已存在的表名用于对比

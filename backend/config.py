@@ -5,24 +5,41 @@ auto_geo 后端配置
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Literal
 from dotenv import load_dotenv
 
-# ==================== 项目路径 ====================
-BASE_DIR = Path(__file__).resolve().parent.parent
+# ==================== PyInstaller 打包检测 ====================
+def is_frozen() -> bool:
+    """检测是否在打包环境下运行"""
+    return hasattr(sys, '_MEIPASS')
 
-# 加载环境变量
-load_dotenv(BASE_DIR / ".env")
+
+# ==================== 项目路径 ====================
+if is_frozen():
+    # 打包环境：数据放在用户目录下（代码目录只读）
+    BASE_DIR = Path.home() / "AutoGeo"
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 加载环境变量（只在开发环境加载）
+if not is_frozen():
+    load_dotenv(BASE_DIR / ".env")
+
 DATA_DIR = BASE_DIR / ".cookies"
 
 # 数据库目录需要和代码目录分离，否则 Docker 挂载会覆盖代码！
 # 本地开发: backend/database/
 # Docker 环境: /app/database/ (独立目录，不覆盖代码)
+# 打包环境: 用户目录下的 AutoGeo/database/
 _DOCKER_DB_DIR = Path("/app/database")
 if _DOCKER_DB_DIR.exists() or os.getenv("ENVIRONMENT") == "production":
     # Docker 环境：使用独立的数据目录
     DATABASE_DIR = _DOCKER_DB_DIR
+elif is_frozen():
+    # 打包环境：使用用户目录
+    DATABASE_DIR = BASE_DIR / "database"
 else:
     # 本地开发环境：使用 backend/database
     DATABASE_DIR = BASE_DIR / "backend" / "database"
@@ -496,8 +513,8 @@ MAX_RETRY_COUNT = 2
 RETRY_INTERVAL = 5
 
 # ==================== n8n配置 ====================
-# n8n webhook基础URL
-N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook")
+# n8n webhook基础URL（默认云端地址）
+N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "https://n8n.opencaio.cn/webhook")
 # n8n工作流超时时间（秒）
 N8N_TIMEOUT = 300
 # n8n回调URL（用于异步接收生成结果）

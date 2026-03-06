@@ -1,0 +1,134 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: ['**']
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '20'
+
+jobs:
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install PyInstaller
+        shell: pwsh
+        run: pip install pyinstaller
+
+      - name: Install backend dependencies
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Installing Python dependencies..."
+          pip install -r requirements.txt
+          pip install pyinstaller-hooks-contrib
+
+      - name: Install Playwright browsers
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Installing Playwright Chromium..."
+          playwright install chromium
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        shell: pwsh
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          Write-Host "Building frontend with Vite..."
+          npm run build:renderer
+
+      - name: Prepare static files
+        shell: pwsh
+        run: |
+          Write-Host "Preparing static files..."
+          $staticDir = "backend\static\frontend"
+          New-Item -ItemType Directory -Force -Path $staticDir | Out-Null
+          Copy-Item "frontend\dist\index.html" -Destination $staticDir\
+          if (Test-Path "frontend\dist\assets") {
+              Copy-Item "frontend\dist\assets" -Destination $staticDir\ -Recurse
+          }
+          Write-Host "Frontend files copied to backend/static/frontend/"
+
+      - name: Build with PyInstaller
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Building EXE with PyInstaller..."
+          pyinstaller AutoGeoBackend.spec --clean --noconfirm
+
+      - name: Verify build
+        shell: pwsh
+        run: |
+          $exePath = "backend\dist\AutoGeoBackend.exe"
+          if (Test-Path $exePath) {
+              $size = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
+              Write-Host "Build succeeded! Size: $size MB"
+          } else {
+              Write-Host "Build failed! EXE not found."
+              exit 1
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoGeo-Windows-EXE
+          path: backend/dist/AutoGeoBackend.exe
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: backend/dist/AutoGeoBackend.exe
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build summary
+        if: success()
+        shell: pwsh
+        run: |
+          $exePath = "backend\dist\AutoGeoBackend.exe"
+          $size = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
+          "### Build Success! :rocket:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- **File**: AutoGeoBackend.exe" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- **Size**: $size MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          "- **Platform**: Windows x64" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
