@@ -176,6 +176,15 @@ class KnowledgeSyncService:
 
             docs = result.get("data", [])
 
+            # 根据 dataset_id 反查对应 KnowledgeCategory
+            category = (
+                self.db.query(KnowledgeCategory).filter(KnowledgeCategory.ragflow_dataset_id == dataset_id).first()
+            )
+
+            if not category:
+                logger.warning(f"未找到 dataset_id {dataset_id} 对应的分类")
+                return False
+
             for doc in docs:
                 doc_id = doc.get("id")
                 if not doc_id:
@@ -185,11 +194,15 @@ class KnowledgeSyncService:
                 knowledge = self.db.query(Knowledge).filter(Knowledge.ragflow_document_id == doc_id).first()
 
                 if not knowledge:
-                    # 创建缓存
+                    # 创建缓存，确保必填字段有值
+                    content = doc.get("summary") or doc.get("content") or doc.get("name", "") or "RAGFlow 文档占位内容"
+
                     knowledge = Knowledge(
                         ragflow_document_id=doc_id,
                         ragflow_dataset_id=dataset_id,
+                        category_id=category.id,  # 添加必填字段
                         title=doc.get("name", ""),
+                        content=content,  # 添加必填字段
                         type="other",
                         sync_status="synced",
                         last_sync_at=datetime.now(),

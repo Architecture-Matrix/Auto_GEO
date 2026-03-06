@@ -15,7 +15,18 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 # 导入配置和数据库
-from backend.config import APP_NAME, APP_VERSION, DEBUG, HOST, PORT, RELOAD, CORS_ORIGINS, PLATFORMS
+from backend.config import (
+    APP_NAME,
+    APP_VERSION,
+    DEBUG,
+    HOST,
+    PORT,
+    RELOAD,
+    CORS_ORIGINS,
+    PLATFORMS,
+    RAGFLOW_API_KEY,
+    RAGFLOW_DATASET_ID,
+)
 from backend.database import init_db, SessionLocal
 from backend.scripts.fix_database import check_and_fix_database
 
@@ -99,6 +110,15 @@ async def lifespan(app: FastAPI):
         logger.success("✅ 数据库初始化检查完成")
     except Exception as e:
         logger.error(f"❌ 数据库初始化失败: {e}")
+
+    # 2. 校验 RAGFlow 配置
+    if not RAGFLOW_API_KEY or not RAGFLOW_DATASET_ID:
+        logger.warning(
+            "⚠️ RAGFLOW_API_KEY 或 RAGFLOW_DATASET_ID 未设置！"
+            "请在 .env 文件中配置这些环境变量，否则 RAGFlow 相关功能将无法正常使用。"
+        )
+    else:
+        logger.success("✅ RAGFlow 配置已就绪")
 
     # 2. 注入全局 WebSocket 管理器
     account.set_ws_manager(ws_manager)
