@@ -1,0 +1,205 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: ['**']
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '20'
+
+jobs:
+  build-windows-installer:
+    name: Build Windows NSIS Installer
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      # ==================== 1. 检出代码 ====================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ==================== 2. 安装运行时环境 ====================
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # 配置国内镜像（提高 Electron 下载速度）
+      - name: Configure npm mirrors (China)
+        shell: pwsh
+        run: |
+          Write-Host "Configuring Electron mirrors..."
+          echo "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # ==================== 3. 安装后端依赖 ====================
+      - name: Install PyInstaller
+        shell: pwsh
+        run: pip install pyinstaller
+
+      - name: Install backend dependencies
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Installing Python dependencies..."
+          pip install -r requirements.txt
+          pip install pyinstaller-hooks-contrib
+
+      - name: Install Playwright browsers
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Installing Playwright Chromium..."
+          playwright install chromium
+
+      # ==================== 4. 构建前端（必须先于后端打包！）====================
+      - name: Install frontend dependencies
+        shell: pwsh
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend renderer
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          Write-Host "Building frontend with Vite..."
+          npm run build:renderer
+
+      - name: Prepare static files for backend
+        shell: pwsh
+        run: |
+          Write-Host "Preparing static files..."
+          $staticDir = "backend\static\frontend"
+          New-Item -ItemType Directory -Force -Path $staticDir | Out-Null
+
+          # Vite 输出到 out/renderer 目录
+          if (Test-Path "frontend\out\renderer\index.html") {
+              Copy-Item "frontend\out\renderer\index.html" -Destination $staticDir\
+              if (Test-Path "frontend\out\renderer\assets") {
+                  Copy-Item "frontend\out\renderer\assets" -Destination $staticDir\ -Recurse
+              }
+              Write-Host "Frontend files copied to backend/static/frontend/"
+          } else {
+              Write-Host "ERROR: frontend\out\renderer\index.html not found!"
+              Write-Host "Checking frontend/out directory contents:"
+              Get-ChildItem "frontend\out" -Recurse | Select-Object FullName
+              exit 1
+          }
+
+      # ==================== 5. 打包后端 EXE（现在 static 目录已有前端文件）====================
+      - name: Build backend EXE with PyInstaller
+        shell: pwsh
+        working-directory: backend
+        run: |
+          Write-Host "Building backend EXE with PyInstaller..."
+          pyinstaller AutoGeoBackend.spec --clean --noconfirm
+
+      - name: Verify backend build
+        shell: pwsh
+        run: |
+          $exePath = "backend\dist\AutoGeoBackend.exe"
+          if (Test-Path $exePath) {
+              $size = [math]::Round((Get-Item $exePath).Length / 1MB, 2)
+              Write-Host "Backend build succeeded! Size: $size MB"
+          } else {
+              Write-Host "Backend build failed! EXE not found."
+              exit 1
+          }
+
+      # ==================== 6. 构建 Electron 主进程 ====================
+      - name: Build Electron main process
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          Write-Host "Building Electron main process..."
+          npm run build:electron
+
+      # ==================== 7. 打包 Electron 应用（NSIS 安装程序）====================
+      - name: Package with electron-builder
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          Write-Host "Packaging Windows installer with electron-builder..."
+          npx electron-builder --win --config.nsis.oneClick=false
+
+      - name: Verify installer build
+        shell: pwsh
+        run: |
+          $installerPath = "frontend\dist\AutoGeo-v*-Setup.exe"
+          $files = Get-ChildItem $installerPath -ErrorAction SilentlyContinue
+          if ($files) {
+              foreach ($file in $files) {
+                  $size = [math]::Round($file.Length / 1MB, 2)
+                  Write-Host "Installer created: $($file.Name)"
+                  Write-Host "Size: $size MB"
+              }
+          } else {
+              Write-Host "ERROR: Installer not found!"
+              Write-Host "Checking frontend/dist directory:"
+              Get-ChildItem "frontend\dist" -Recurse | Select-Object FullName
+              exit 1
+          }
+
+      # ==================== 8. 上传和发布 ====================
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoGeo-Windows-Installer
+          path: frontend/dist/AutoGeo-v*-Setup.exe
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Create release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend/dist/AutoGeo-v*-Setup.exe
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ==================== 9. 构建摘要 ====================
+      - name: Build summary
+        if: success()
+        shell: pwsh
+        run: |
+          $installer = Get-Item "frontend\dist\AutoGeo-v*-Setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($installer) {
+              $size = [math]::Round($installer.Length / 1MB, 2)
+              "### 🚀 Build Success! :rocket:" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "| Artifact | Size |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "|----------|------|" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "| **$($installer.Name)** | $size MB |" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "### 📦 Installation" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "1. Download the `.exe` file from the artifacts or releases" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "2. Run the installer and follow the setup wizard" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "3. Launch AutoGeo from the desktop shortcut" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "### ⚠️ First Run" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "- First launch takes 1-2 minutes (Playwright browser initialization)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "- The backend service starts automatically in the background" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+          }

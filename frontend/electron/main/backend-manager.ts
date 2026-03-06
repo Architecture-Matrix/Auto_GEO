@@ -1,6 +1,9 @@
 /**
  * Python 后端进程管理器
  * 我用这个来启动和管理 FastAPI 后端！
+ * 支持两种模式：
+ * 1. 打包模式：运行 PyInstaller 打包的 .exe
+ * 2. 开发模式：直接运行 python main.py
  */
 
 import { spawn, ChildProcess, execSync } from 'child_process'
@@ -22,12 +25,18 @@ function isAppQuitting(): boolean {
 
 // 后端配置
 const BACKEND_CONFIG = {
-  // 后端目录（开发环境和打包后不同）
+  // 获取后端exe路径（打包模式）
+  get backendExePath(): string | null {
+    if (!app.isPackaged) return null
+    // 打包环境：resources 目录下的 exe
+    return join(process.resourcesPath, 'AutoGeoBackend.exe')
+  },
+
+  // 获取后端目录（开发环境和打包后都适用）
   get backendDir(): string {
     const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
     if (isDev) {
       // 开发环境：backend 目录在项目根目录
-      // 从 out/electron/main 向上找项目根目录
       const currentDir = __dirname
       const rootDir = join(currentDir, '../../../..')
       return join(rootDir, 'backend')
@@ -35,6 +44,14 @@ const BACKEND_CONFIG = {
       // 生产环境：backend 在 resources 目录
       return join(process.resourcesPath, 'backend')
     }
+  },
+
+  // 获取静态文件目录（打包后单独存放）
+  get staticDir(): string {
+    if (app.isPackaged) {
+      return join(process.resourcesPath, 'static')
+    }
+    return join(this.backendDir, 'static')
   },
 
   // Python 解释器路径
@@ -49,6 +66,12 @@ const BACKEND_CONFIG = {
   // 后端地址
   host: '127.0.0.1',
   port: 8001,
+
+  // 是否使用打包的exe（仅打包环境）
+  get useExe(): boolean {
+    const exePath = this.backendExePath
+    return app.isPackaged && exePath !== null && existsSync(exePath)
+  },
 
   // 健康检查 URL
   healthUrl(): string {
@@ -98,7 +121,13 @@ class BackendManager {
       return true
     }
 
-    // 检查 Python
+    // 检查是否使用打包的exe
+    if (BACKEND_CONFIG.useExe) {
+      console.log('[BackendManager] 🚀 使用打包的后端exe...')
+      return this.startExeMode()
+    }
+
+    // 开发模式：检查 Python
     if (!checkPython()) {
       console.error('[BackendManager] ❌ Python 不可用！请确保已安装 Python 3.10+')
       this.status = 'error'
@@ -112,7 +141,7 @@ class BackendManager {
       return false
     }
 
-    console.log('[BackendManager] 🚀 正在启动后端...')
+    console.log('[BackendManager] 🚀 正在启动后端（Python模式）...')
     this.status = 'starting'
 
     try {
@@ -128,13 +157,14 @@ class BackendManager {
       this.process = spawn(pythonExe, [entryFile], {
         cwd: backendDir,
         shell: false,
-        // Windows 下隐藏控制台窗口，但 Playwright 的浏览器窗口仍然可见
-        windowsHide: false, // 改为 false，让用户能看到可能的错误信息
+        // 隐藏控制台窗口（生产环境用户不需要看到后端日志）
+        // 开发时如需调试，临时改为 false
+        windowsHide: app.isPackaged,
         env: {
           ...process.env,
           // 确保 Python 输出 UTF-8
           PYTHONIOENCODING: 'utf-8',
-          // 确保浏览器窗口可见
+          // 确保浏览器窗口可见（Playwright）
           DISPLAY: process.env.DISPLAY || ':0'
         },
         // 标准输入/输出需要保留
@@ -195,6 +225,64 @@ class BackendManager {
       return true
     } catch (error) {
       console.error('[BackendManager] ❌ 启动失败:', error)
+      this.status = 'error'
+      return false
+    }
+  }
+
+  /**
+   * 启动打包的exe模式
+   */
+  private async startExeMode(): Promise<boolean> {
+    this.status = 'starting'
+
+    const exePath = BACKEND_CONFIG.backendExePath
+    console.log('[BackendManager] 📦 exe路径:', exePath)
+
+    try {
+      this.process = spawn(exePath!, {
+        shell: false,
+        // 隐藏控制台窗口（生产环境用户不需要看到后端日志）
+        windowsHide: true,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: 'utf-8',
+        },
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+
+      const pid = this.process.pid
+      console.log('[BackendManager] ✅ 后端exe已启动，PID:', pid)
+
+      // 监听输出
+      this.process.stdout?.on('data', (data) => {
+        const msg = data.toString().trim()
+        if (msg) console.log('[Backend-Exe-OUT]', msg)
+      })
+
+      this.process.stderr?.on('data', (data) => {
+        const msg = data.toString().trim()
+        if (msg) console.error('[Backend-Exe-ERR]', msg)
+      })
+
+      this.process.on('close', (code) => {
+        console.log(`[BackendManager] ⛔ exe进程退出，代码: ${code}`)
+        this.status = 'stopped'
+        this.stopHealthCheck()
+      })
+
+      this.startHealthCheck()
+
+      // 超时检测
+      this.startupTimer = setTimeout(() => {
+        if (this.status === 'starting') {
+          console.warn('[BackendManager] ⚠️ exe启动超时')
+        }
+      }, 30000)
+
+      return true
+    } catch (error) {
+      console.error('[BackendManager] ❌ exe启动失败:', error)
       this.status = 'error'
       return false
     }

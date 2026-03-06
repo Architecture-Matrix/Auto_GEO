@@ -14,17 +14,17 @@ files:
   - "!**/node_modules/*.map"
   # electron-builder 会自动打包 dependencies（从 package.json 读取）
   # 如果需要排除某些依赖，可以使用 ! 前缀
-# 备注（2026-02-25）：后端部署到服务器，不需要打包backend目录
-# extraResources:
-#   - from: ../backend
-#     to: backend
-#     filter:
-#       - '**/*'
-#       - '!**/__pycache__'
-#       - '!**/*.pyc'
-#       - '!**/.pytest_cache'
-#       - '!**/tests'
-#       - '!**/.git'
+# 打包后端可执行文件和静态资源（PyInstaller打包，不需要用户安装Python）
+extraResources:
+  # 后端 exe（backend-manager.ts 从 process.resourcesPath/AutoGeoBackend.exe 读取）
+  - from: ../backend/dist/AutoGeoBackend.exe
+    to: AutoGeoBackend.exe
+  # 前端静态文件（FastAPI 从 static 目录服务）
+  - from: ../backend/static
+    to: static
+    filter:
+      - '**/*'
+      - '!**/uploads/**'  # 不打包上传文件目录
 # 关闭 asar 打包，避免模块路径问题（实测这玩意儿是个坑）
 asar: false
 win:
@@ -32,7 +32,7 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+  artifactName: ${productName}-v${version}-Setup.${ext}
   sign: null
   signingHashAlgorithms: []
 nsis:
