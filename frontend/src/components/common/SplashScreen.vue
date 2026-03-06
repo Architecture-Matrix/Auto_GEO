@@ -13,7 +13,7 @@
 
       <!-- 应用名称 -->
       <h1 class="splash-title">AutoGeo</h1>
-      <p class="splash-subtitle">AI 智能多平台文章发布助手</p>
+      <p class="splash-subtitle">AI 智能GEO自动化助手</p>
 
       <!-- 版本信息 -->
       <p class="splash-version">v{{ version }}</p>

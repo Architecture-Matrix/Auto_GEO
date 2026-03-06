@@ -21,9 +21,9 @@ let mainWindow: BrowserWindow | null = null
 // ==================== 应用生命周期 ====================
 
 app.whenReady().then(async () => {
-  // 修改：不再自动启动后端，由用户手动启动！
-  // console.log('[App] 正在启动 Python 后端...')
-  // await backendManager.backendManager.start()
+  // 启动后端服务
+  console.log('[App] 正在启动 Python 后端...')
+  await backendManager.backendManager.start()
 
   // 自动启动浏览器桥接服务（用于本地授权和发布）
   console.log('[App] 正在启动本地浏览器桥接服务...')
@@ -70,9 +70,8 @@ app.on('before-quit', () => {
   trayManager.destroyTray()
   // 停止浏览器桥接服务
   browserBridgeManager.browserBridgeManager.stop()
-  // 修改：不再自动停止后端，由用户手动管理！
-  // 如果将来需要自动管理，可以在这里调用
-  // backendManager.backendManager.stop()
+  // 停止后端服务
+  backendManager.backendManager.stop()
 })
 
 // ==================== 导出 ====================
