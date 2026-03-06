@@ -76,11 +76,19 @@ jobs:
           Write-Host "Preparing static files..."
           $staticDir = "backend\static\frontend"
           New-Item -ItemType Directory -Force -Path $staticDir | Out-Null
-          Copy-Item "frontend\dist\index.html" -Destination $staticDir\
-          if (Test-Path "frontend\dist\assets") {
-              Copy-Item "frontend\dist\assets" -Destination $staticDir\ -Recurse
+          # Vite 输出到 out/renderer 目录
+          if (Test-Path "frontend\out\renderer\index.html") {
+              Copy-Item "frontend\out\renderer\index.html" -Destination $staticDir\
+              if (Test-Path "frontend\out\renderer\assets") {
+                  Copy-Item "frontend\out\renderer\assets" -Destination $staticDir\ -Recurse
+              }
+              Write-Host "Frontend files copied to backend/static/frontend/"
+          } else {
+              Write-Host "ERROR: frontend\out\renderer\index.html not found!"
+              Write-Host "Checking frontend/out directory contents:"
+              Get-ChildItem "frontend\out" -Recurse | Select-Object FullName
+              exit 1
           }
-          Write-Host "Frontend files copied to backend/static/frontend/"
 
       - name: Build with PyInstaller
         shell: pwsh
