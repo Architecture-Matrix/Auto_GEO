@@ -1,27 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 AutoGeo 单一 EXE 打包配置
-版本: v3.1.3
+版本: v3.1.4
 说明: 打包后端 + 前端静态文件成单一可执行文件
+修复: 修复 collect_data_files 格式问题
 """
 
 import sys
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
-
-# 收集 Playwright 浏览器文件
-playwright_bins = collect_data_files('playwright')
-playwright_bins += collect_submodules('playwright')
-
-# 收集 curl_cffi 数据文件
-curl_cffi_bins = collect_data_files('curl_cffi')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=playwright_bins + curl_cffi_bins,
+    binaries=[],
     datas=[
         # 配置文件
         ('config.py', '.'),
@@ -37,6 +30,7 @@ a = Analysis(
         # 核心框架
         'playwright.async_api',
         'playwright.sync_api',
+        'playwright',
         'uvicorn',
         'uvicorn.logging',
         'uvicorn.loops',
